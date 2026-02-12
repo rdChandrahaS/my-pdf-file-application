@@ -1,0 +1,19 @@
+.root {
+    -fx-background-color: white;
+}
+
+.label {
+    -fx-text-fill: black;
+}
+
+.button {
+    -fx-background-color: #e0e0e0;
+}
+
+.tool-card {
+    -fx-pref-width: 160px;
+    -fx-pref-height: 120px;
+    -fx-font-size: 14px;
+    -fx-background-radius: 12;
+    -fx-cursor: hand;
+}
