@@ -5,10 +5,16 @@ import com.rdchandrahas.shared.model.ViewMode;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.ToggleButton;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 /**
  * Shared logic for tools that require sorting and view toggling.
  */
 public interface SortableToolController extends InjectableController {
+
+    // Define a static logger for the interface
+    Logger LOGGER = Logger.getLogger(SortableToolController.class.getName());
     
     FileListView getFileListView();
     ComboBox<String> getSortCombo();
@@ -29,6 +35,7 @@ public interface SortableToolController extends InjectableController {
             case "Name (Z-A)" -> getFileListView().sortByName(false);
             case "Size (Smallest)" -> getFileListView().sortBySize(true);
             case "Size (Largest)" -> getFileListView().sortBySize(false);
+            default -> LOGGER.log(Level.WARNING, "Unknown sort type selected: {0}", selection);
         }
     }
 

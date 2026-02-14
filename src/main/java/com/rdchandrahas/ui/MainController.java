@@ -29,6 +29,8 @@ import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -39,6 +41,9 @@ import java.util.regex.Pattern;
  */
 public class MainController implements InjectableController {
 
+    // --- Logger ---
+    private static final Logger LOGGER = Logger.getLogger(MainController.class.getName());
+
     // --- Constants ---
     private static final String DEFAULT_ACCENT_COLOR = "#0078d7";
     private static final String DEFAULT_FONT_SIZE = "14px";
@@ -48,11 +53,18 @@ public class MainController implements InjectableController {
     private static final String APP_VERSION = "v0.0.1";
     private static final String GITHUB_URL = "https://github.com/rdChandrahaS/my-pdf-file-application";
 
+    private static final String STATUS_PERFORMANCE = "Performance";
+    private static final String STATUS_ERROR = "Error";
+    private static final String STATUS_ENABLED = "ENABLED";
+    private static final String STATUS_DISABLED = "DISABLED";
+    private static final String FLAG_ON = "[ON] ";
+    private static final String FLAG_OFF = "[OFF] ";
+
     // --- FXML Injections ---
     @FXML private StackPane contentPane;
     @FXML private RadioMenuItem lightModeRadio;
     @FXML private RadioMenuItem darkModeRadio;
-    @FXML private CheckMenuItem multiThreadingCheck; // Add corresponding fx:id in FXML
+    @FXML private CheckMenuItem multiThreadingCheck; 
 
     // --- State Variables ---
     private String currentAccentColor = DEFAULT_ACCENT_COLOR;
@@ -69,7 +81,7 @@ public class MainController implements InjectableController {
     private boolean verboseLogging = false;
     private final List<String> debugLogs = new ArrayList<>();
     private boolean cloudSyncEnabled = false;
-    private boolean isProduction = true; // Set to false to unlock experimental features
+    private boolean isProduction = true; 
 
     /**
      * Initializes the controller after its root element has been completely processed.
@@ -87,7 +99,7 @@ public class MainController implements InjectableController {
             try {
                 setDarkTheme();
             } catch (Exception e) {
-                System.err.println("Note: Theme applied without radio button sync.");
+                LOGGER.log(Level.WARNING, "Theme applied without radio button sync.", e);
             }
         });
     }
@@ -153,7 +165,7 @@ public class MainController implements InjectableController {
                 String css = getClass().getResource(path).toExternalForm();
                 contentPane.getScene().getStylesheets().add(css);
             } catch (Exception e) {
-                System.err.println("Could not apply stylesheet: " + path);
+                LOGGER.log(Level.SEVERE, "Could not apply stylesheet: {0}", path);
             }
         }
     }
@@ -235,10 +247,13 @@ public class MainController implements InjectableController {
                     else if (unit.equals("GB")) bytes = val * 1024 * 1024 * 1024;
                 }
                 PdfService.setMemoryLimit(bytes);
-                showAlert(Alert.AlertType.INFORMATION, "Performance",
+                // FIX: Use STATUS_PERFORMANCE constant
+                showAlert(Alert.AlertType.INFORMATION, STATUS_PERFORMANCE,
                         "Memory limit updated to " + limit + ".\nFiles smaller than this will be processed in RAM.");
             } catch (Exception e) {
-                showAlert(Alert.AlertType.ERROR, "Error", "Failed to parse memory limit.");
+                // FIX: Use STATUS_ERROR constant
+                showAlert(Alert.AlertType.ERROR, STATUS_ERROR, "Failed to parse memory limit.");
+                LOGGER.log(Level.SEVERE, "Failed to parse memory limit input", e);
             }
         });
     }
@@ -255,9 +270,12 @@ public class MainController implements InjectableController {
                 long mb = Long.parseLong(sizeStr.trim());
                 long bytes = mb * 1024 * 1024;
                 ThumbnailCache.setMaxSizeBytes(bytes);
-                showAlert(Alert.AlertType.INFORMATION, "Performance", "Cache size limit set to " + mb + " MB");
+                // FIX: Use STATUS_PERFORMANCE constant
+                showAlert(Alert.AlertType.INFORMATION, STATUS_PERFORMANCE, "Cache size limit set to " + mb + " MB");
             } catch (NumberFormatException e) {
-                showAlert(Alert.AlertType.ERROR, "Error", "Please enter a valid number.");
+                // FIX: Use STATUS_ERROR constant
+                showAlert(Alert.AlertType.ERROR, STATUS_ERROR, "Please enter a valid number.");
+                LOGGER.log(Level.WARNING, "Invalid cache size input provided", e);
             }
         });
     }
@@ -270,6 +288,7 @@ public class MainController implements InjectableController {
             logDebug("Runtime thumbnail memory cleared.");
         } catch (Exception e) {
             logDebug("Error clearing memory cache: " + e.getMessage());
+            LOGGER.log(Level.WARNING, "Error clearing memory cache", e);
         }
 
         try {
@@ -278,6 +297,7 @@ public class MainController implements InjectableController {
             logDebug("Disk-based temporary files purged from: " + tempPath.toString());
         } catch (Exception e) {
             logDebug("Error cleaning temp directory: " + e.getMessage());
+            LOGGER.log(Level.WARNING, "Error cleaning temp directory", e);
         }
 
         showAlert(Alert.AlertType.INFORMATION, "Maintenance", "All temporary processing files and thumbnail memory have been purged.");
@@ -287,8 +307,10 @@ public class MainController implements InjectableController {
     private void handleBackgroundProcessing() {
         backgroundProcessing = !backgroundProcessing;
         ExecutionManager.setAsync(backgroundProcessing);
-        String status = backgroundProcessing ? "ENABLED" : "DISABLED";
-        showAlert(Alert.AlertType.INFORMATION, "Performance", "Background Processing is now " + status + ".");
+        // FIX: Use ENABLED/DISABLED constants
+        String status = backgroundProcessing ? STATUS_ENABLED : STATUS_DISABLED;
+        // FIX: Use STATUS_PERFORMANCE constant
+        showAlert(Alert.AlertType.INFORMATION, STATUS_PERFORMANCE, "Background Processing is now " + status + ".");
     }
 
     @FXML
@@ -300,9 +322,11 @@ public class MainController implements InjectableController {
             multiThreadingCheck.setSelected(multiThreadingEnabled);
         }
         
-        String status = multiThreadingEnabled ? "ENABLED" : "DISABLED";
+        // FIX: Use ENABLED/DISABLED constants
+        String status = multiThreadingEnabled ? STATUS_ENABLED : STATUS_DISABLED;
         logDebug("Multi-threading toggled to: " + status);
-        showAlert(Alert.AlertType.INFORMATION, "Performance", "Multi-threading Processing is now " + status + ".");
+        // FIX: Use STATUS_PERFORMANCE constant
+        showAlert(Alert.AlertType.INFORMATION, STATUS_PERFORMANCE, "Multi-threading Processing is now " + status + ".");
     }
 
     @FXML 
@@ -317,9 +341,11 @@ public class MainController implements InjectableController {
             System.setProperty("prism.vsync", "false");
         }
 
-        String status = hardwareAcceleration ? "ENABLED" : "DISABLED";
+        // FIX: Use ENABLED/DISABLED constants
+        String status = hardwareAcceleration ? STATUS_ENABLED : STATUS_DISABLED;
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Performance");
+        // FIX: Use STATUS_PERFORMANCE constant
+        alert.setTitle(STATUS_PERFORMANCE);
         alert.setHeaderText("Hardware Acceleration " + status);
         alert.setContentText("A restart is required for these changes to take full effect.");
 
@@ -334,7 +360,7 @@ public class MainController implements InjectableController {
 
     private void handleRestart() {
         Platform.exit();
-        System.out.println("Application closing for restart...");
+        LOGGER.info("Application closing for restart...");
         System.exit(0);
     }
 
@@ -428,11 +454,14 @@ public class MainController implements InjectableController {
     }
 
     private void logDebug(String msg) {
+        // Keep manual timestamp for the internal UI list so it matches the console text area
         String timestamp = new SimpleDateFormat("HH:mm:ss").format(new Date());
         String formatted = "[" + timestamp + "] " + msg;
         debugLogs.add(formatted);
+        
+        // Use standard Logger for the actual console output
         if (verboseLogging) {
-            System.out.println(formatted);
+            LOGGER.info(msg); 
         }
     }
 
@@ -445,6 +474,7 @@ public class MainController implements InjectableController {
         } catch (Exception e) {
             pdfBoxStatus = "FAILED: Engine not found";
             logDebug("API Test Error: PDFBox version check failed.");
+            LOGGER.log(Level.WARNING, "API Test Error: PDFBox version check failed", e);
         }
 
         String navStatus = (navigationService != null) ? "ACTIVE" : "ERROR: Service not initialized";
@@ -463,14 +493,15 @@ public class MainController implements InjectableController {
     @FXML
     private void handleFeatureFlags() {
         logDebug("Opening Feature Flags manager.");
+        
         StringBuilder status = new StringBuilder("Current System Feature Flags:\n\n");
-        status.append(hardwareAcceleration ? "[ON] " : "[OFF] ").append("Hardware Acceleration (Rendering)\n");
-        status.append(backgroundProcessing ? "[ON] " : "[OFF] ").append("Async Background Processing\n");
-        status.append(multiThreadingEnabled ? "[ON] " : "[OFF] ").append("Multi-threaded Execution\n");
-        status.append(cloudSyncEnabled ? "[ON] " : "[OFF] ").append("Cloud Storage Sync (BETA)\n");
+        status.append(hardwareAcceleration ? FLAG_ON : FLAG_OFF).append("Hardware Acceleration (Rendering)\n");
+        status.append(backgroundProcessing ? FLAG_ON : FLAG_OFF).append("Async Background Processing\n");
+        status.append(multiThreadingEnabled ? FLAG_ON : FLAG_OFF).append("Multi-threaded Execution\n");
+        status.append(cloudSyncEnabled ? FLAG_ON : FLAG_OFF).append("Cloud Storage Sync (BETA)\n");
 
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Feature Flags");
+        alert.setTitle("Feature Flags"); 
         alert.setHeaderText("Development & Experimental Flags");
         alert.setContentText(status.toString());
 
@@ -614,10 +645,19 @@ public class MainController implements InjectableController {
                 } else if (response.statusCode() == 404) {
                     Platform.runLater(() -> showAlert(Alert.AlertType.INFORMATION, "Check for Updates", "No releases found on GitHub yet."));
                 } else {
-                    Platform.runLater(() -> showAlert(Alert.AlertType.ERROR, "Error", "Failed to check for updates. HTTP Status: " + response.statusCode()));
+                    Platform.runLater(() -> {
+                        // FIX: Use STATUS_ERROR constant
+                        showAlert(Alert.AlertType.ERROR, STATUS_ERROR, "Failed to check for updates. HTTP Status: " + response.statusCode());
+                        LOGGER.log(Level.WARNING, "Failed to check updates, status code: {0}", response.statusCode());
+                    });
                 }
+            }catch (InterruptedException e) {
+                Thread.currentThread().interrupt(); 
+                logDebug("Update check interrupted: " + e.getMessage());
+                LOGGER.log(Level.SEVERE, "Update check interrupted", e);
             } catch (Exception e) {
                 logDebug("Update check failed: " + e.getMessage());
+                LOGGER.log(Level.SEVERE, "Update check failed", e);
                 Platform.runLater(() -> showAlert(Alert.AlertType.ERROR, "Connection Error", "Could not connect to the update server."));
             }
         });

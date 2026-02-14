@@ -9,6 +9,10 @@ import java.io.File;
  */
 public class PdfMetadataUtil {
 
+    private PdfMetadataUtil() {
+        throw new IllegalStateException("Utility class");
+    }
+    
     /**
      * Opens a PDF file to retrieve its total page count.
      * * @param path The absolute path to the PDF file.

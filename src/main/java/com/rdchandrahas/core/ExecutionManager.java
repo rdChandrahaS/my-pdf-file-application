@@ -10,6 +10,10 @@ import java.util.concurrent.Executors;
  */
 public class ExecutionManager {
     
+    private ExecutionManager() {
+        throw new IllegalStateException("Utility class");
+    }
+    
     // --- State Variables ---
     
     /** Default: Run in background (Async) to keep the UI responsive. */

@@ -2,10 +2,11 @@ package com.rdchandrahas.ui.base;
 
 import com.rdchandrahas.core.ExecutionManager;
 import com.rdchandrahas.core.NavigationService;
-import com.rdchandrahas.ui.InjectableController;
 import com.rdchandrahas.ui.SortableToolController;
 import com.rdchandrahas.shared.component.FileListView;
 import com.rdchandrahas.shared.model.FileItem;
+import com.rdchandrahas.shared.util.LogManager;
+
 import javafx.application.Platform;
 import javafx.collections.ListChangeListener;
 import javafx.fxml.FXML;
@@ -27,7 +28,7 @@ import java.util.List;
  * It provides common UI management, asynchronous task execution, and 
  * safe PDF handling methods to ensure consistency across the application.
  */
-public abstract class BaseToolController implements SortableToolController, InjectableController {
+public abstract class BaseToolController implements SortableToolController{
 
     @FXML protected Label toolTitleLabel;
     @FXML protected Button addFilesBtn;
@@ -220,5 +221,13 @@ public abstract class BaseToolController implements SortableToolController, Inje
     @FunctionalInterface 
     public interface ToolTask { 
         void execute(File destination) throws Exception; 
+    }
+
+    protected void logInfo(String message) {
+        LogManager.log("INFO", message);
+    }
+
+    protected void logError(String message) {
+        LogManager.log("ERROR", message);
     }
 }

@@ -11,6 +11,10 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class ThumbnailCache {
 
+    private ThumbnailCache() {
+        throw new IllegalStateException("Utility class");
+    }
+    
     /** Thread-safe storage for images, keyed by their absolute file system path. */
     private static final Map<String, Image> cache = new ConcurrentHashMap<>();
 

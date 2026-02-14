@@ -38,6 +38,10 @@ import java.util.stream.Collectors;
 
 public class WatermarkController extends BaseToolController {
 
+    private static final String FONT_COURIER = "Courier";
+    private static final String FONT_TIMES = "Times Roman";
+    private static final String FONT_HELVETICA = "Helvetica";
+
     private TextField watermarkInput;
     private ColorPicker colorPicker;
     private ComboBox<String> fontCombo;
@@ -207,11 +211,26 @@ public class WatermarkController extends BaseToolController {
 
         boolean b = boldCheck.isSelected();
         boolean i = italicCheck.isSelected();
-        return switch (selection) {
-            case "Courier" -> (b && i) ? PDType1Font.COURIER_BOLD_OBLIQUE : b ? PDType1Font.COURIER_BOLD : i ? PDType1Font.COURIER_OBLIQUE : PDType1Font.COURIER;
-            case "Times Roman" -> (b && i) ? PDType1Font.TIMES_BOLD_ITALIC : b ? PDType1Font.TIMES_BOLD : i ? PDType1Font.TIMES_ITALIC : PDType1Font.TIMES_ROMAN;
-            default -> (b && i) ? PDType1Font.HELVETICA_BOLD_OBLIQUE : b ? PDType1Font.HELVETICA_BOLD : i ? PDType1Font.HELVETICA_OBLIQUE : PDType1Font.HELVETICA;
-        };
+        
+        if (FONT_COURIER.equals(selection)) {
+            if (b && i) return PDType1Font.COURIER_BOLD_OBLIQUE;
+            if (b) return PDType1Font.COURIER_BOLD;
+            if (i) return PDType1Font.COURIER_OBLIQUE;
+            return PDType1Font.COURIER;
+        } 
+        else if (FONT_TIMES.equals(selection)) {
+            if (b && i) return PDType1Font.TIMES_BOLD_ITALIC;
+            if (b) return PDType1Font.TIMES_BOLD;
+            if (i) return PDType1Font.TIMES_ITALIC;
+            return PDType1Font.TIMES_ROMAN;
+        }
+        else {
+            // Default to Helvetica
+            if (b && i) return PDType1Font.HELVETICA_BOLD_OBLIQUE;
+            if (b) return PDType1Font.HELVETICA_BOLD;
+            if (i) return PDType1Font.HELVETICA_OBLIQUE;
+            return PDType1Font.HELVETICA;
+        }
     }
 
     private void loadAvailableFonts() {

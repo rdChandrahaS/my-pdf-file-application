@@ -20,6 +20,10 @@ import java.util.function.Consumer;
  */
 public class PdfThumbnailUtil {
 
+    private PdfThumbnailUtil() {
+        throw new IllegalStateException("Utility class");
+    }
+    
     /** Set of supported image extensions for direct thumbnail loading. */
     private static final Set<String> IMAGE_EXTENSIONS = Set.of(
             ".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif"

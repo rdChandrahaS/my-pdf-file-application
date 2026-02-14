@@ -40,8 +40,7 @@ public class ExtractImagesController extends BaseToolController {
         chooser.setTitle("Select Destination Folder");
         File destDir = chooser.showDialog(actionBtn.getScene().getWindow());
 
-        if (destDir == null)
-            return;
+        if (destDir == null) return;
 
         setBusy(true, actionBtn);
 
@@ -50,41 +49,8 @@ public class ExtractImagesController extends BaseToolController {
             try {
                 for (Object obj : fileListView.getItems()) {
                     FileItem item = (FileItem) obj;
-                    File sourceFile = new File(item.getPath());
-                    String baseName = sourceFile.getName().replaceFirst("[.][^.]+$", "");
-
-                    try (PDDocument doc = loadDocumentSafe(item.getPath())) {
-                        int pageNum = 1;
-                        for (PDPage page : doc.getPages()) {
-                            PDResources resources = page.getResources();
-                            if (resources == null)
-                                continue;
-
-                            int imageNum = 1;
-                            for (COSName name : resources.getXObjectNames()) {
-                                PDXObject xObject = resources.getXObject(name);
-
-                                if (xObject instanceof PDImageXObject pdImage) {
-                                    BufferedImage bImage = pdImage.getImage();
-                                    if (bImage != null) {
-                                        // Use native format suffix if available, default to png
-                                        String format = pdImage.getSuffix();
-                                        if (format == null || format.isEmpty()) {
-                                            format = "png";
-                                        }
-
-                                        String fileName = baseName + "_p" + pageNum + "_img" + imageNum + "." + format;
-                                        File outputFile = new File(destDir, fileName);
-
-                                        ImageIO.write(bImage, format, outputFile);
-                                        imageNum++;
-                                        totalExtracted++;
-                                    }
-                                }
-                            }
-                            pageNum++;
-                        }
-                    }
+                    // Call helper method
+                    totalExtracted += extractImagesFromPdf(new File(item.getPath()), destDir);
                 }
 
                 final int finalCount = totalExtracted;
@@ -105,6 +71,46 @@ public class ExtractImagesController extends BaseToolController {
                 });
             }
         }).start();
+    }
+
+    /**
+     * Helper method to reduce complexity of handleAction.
+     */
+    private int extractImagesFromPdf(File sourceFile, File destDir) throws Exception {
+        int count = 0;
+        String baseName = sourceFile.getName().replaceFirst("[.][^.]+$", "");
+
+        try (PDDocument doc = loadDocumentSafe(sourceFile.getAbsolutePath())) {
+            int pageNum = 1;
+            for (PDPage page : doc.getPages()) {
+                PDResources resources = page.getResources();
+                if (resources == null) continue;
+
+                int imageNum = 1;
+                for (COSName name : resources.getXObjectNames()) {
+                    PDXObject xObject = resources.getXObject(name);
+
+                    if (xObject instanceof PDImageXObject pdImage) {
+                        BufferedImage bImage = pdImage.getImage();
+                        if (bImage != null) {
+                            String format = pdImage.getSuffix();
+                            if (format == null || format.isEmpty()) {
+                                format = "png";
+                            }
+
+                            String fileName = baseName + "_p" + pageNum + "_img" + imageNum + "." + format;
+                            File outputFile = new File(destDir, fileName);
+
+                            ImageIO.write(bImage, format, outputFile);
+                            imageNum++;
+                            count++;
+                        }
+                    }
+                }
+                pageNum++;
+            }
+        }
+        return count;
     }
 
     @Override

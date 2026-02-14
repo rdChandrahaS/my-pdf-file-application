@@ -8,7 +8,6 @@
 /* Global Text */
 .label { -fx-text-fill: white; }
 
-
 /* --- Professional Tool Layout Styling (Dark) --- */
 .tool-header {
     -fx-background-color: #1a1a1a;
@@ -57,12 +56,16 @@
 .file-list-area {
     -fx-background-color: transparent;
 }
+
+/* FIX: Merged duplicate .list-view selectors here */
 .list-view {
-    -fx-background-color: transparent;
-    -fx-control-inner-background: transparent;
+    -fx-background-color: #121212;
+    -fx-control-inner-background: #121212;
     -fx-background-insets: 0;
-    -fx-padding: 0;
-    -fx-border-color: transparent;
+    -fx-padding: 5;
+    -fx-border-color: #3d3d3d;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
 }
 
 /* Modern Segmented Controls */
@@ -147,7 +150,11 @@
 .success-button:hover { -fx-background-color: #218838; }
 
 /* --- ScrollPane & Grids --- */
-.scroll-pane, .grid-scroll { -fx-background-color: transparent; -fx-background: transparent; }
+/* FIX: Removed redundant background-color property that was being overwritten */
+.scroll-pane, .grid-scroll { 
+    -fx-background: transparent; 
+    -fx-background-color: transparent;
+}
 .scroll-pane > .viewport { -fx-background-color: transparent; }
 .grid-card {
     -fx-background-color: #2b2b2b;
@@ -264,16 +271,7 @@
     -fx-padding: 3 0 3 0;
 }
 
-/* --- ListView Styling --- */
-.list-view {
-    -fx-background-color: #121212;
-    -fx-control-inner-background: #121212;
-    -fx-background-insets: 0;
-    -fx-padding: 5;
-    -fx-border-color: #3d3d3d;
-    -fx-border-radius: 8;
-    -fx-background-radius: 8;
-}
+/* --- ListView Item Styling --- */
 .list-cell {
     -fx-background-color: transparent;
     -fx-text-fill: white;

@@ -10,6 +10,10 @@ public class ServiceProvider {
     /** * The shared instance of the PDF processing engine. 
      * Initialized with PdfService which utilizes Apache PDFBox.
      */
+    private ServiceProvider() {
+        throw new IllegalStateException("Utility class");
+    }
+    
     private static final PdfProcessor pdfProcessor = new PdfService(); 
 
     /**

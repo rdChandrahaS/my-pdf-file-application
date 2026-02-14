@@ -29,6 +29,8 @@ import java.nio.file.StandardCopyOption;
  */
 public class CompressController extends BaseToolController {
 
+    private static final String MODE_PERCENTAGE = "By Percentage";
+
     private ComboBox<String> modeComboBox;
     private TextField valueInput;
     private ComboBox<String> unitComboBox;
@@ -44,7 +46,7 @@ public class CompressController extends BaseToolController {
 
         // --- UI Component Initialization ---
         modeComboBox = new ComboBox<>();
-        modeComboBox.getItems().addAll("By Percentage", "By Target Size");
+    modeComboBox.getItems().addAll(MODE_PERCENTAGE, "By Target Size");
         modeComboBox.getSelectionModel().selectFirst();
 
         valueInput = new TextField();
@@ -57,7 +59,7 @@ public class CompressController extends BaseToolController {
 
         // Dynamically change the UI behavior based on the mode selected
         modeComboBox.setOnAction(e -> {
-            if (modeComboBox.getValue().equals("By Percentage")) {
+            if (modeComboBox.getValue().equals(MODE_PERCENTAGE)) {
                 unitComboBox.getItems().setAll("%");
                 unitComboBox.getSelectionModel().selectFirst();
                 valueInput.setPromptText("Enter percentage (e.g., 50)");

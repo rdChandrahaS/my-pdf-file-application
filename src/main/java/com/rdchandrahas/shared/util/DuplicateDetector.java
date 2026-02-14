@@ -9,6 +9,9 @@ import java.util.List;
  */
 public class DuplicateDetector {
 
+    private DuplicateDetector() {
+        throw new IllegalStateException("Utility class");
+    }
     /**
      * Checks if a specific FileItem already exists within a list based on its absolute path.
      * * @param items   The current list of FileItems in the view.

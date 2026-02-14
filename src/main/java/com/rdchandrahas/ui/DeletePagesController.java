@@ -10,9 +10,13 @@ import java.io.File;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public class DeletePagesController extends BaseToolController {
+
+    private static final Logger LOGGER = Logger.getLogger(DeletePagesController.class.getName());
 
     private TextField pageRangeInput;
 
@@ -25,7 +29,6 @@ public class DeletePagesController extends BaseToolController {
         pageRangeInput.setPromptText("Pages to delete (e.g., 1, 3, 5-10)");
         pageRangeInput.setPrefWidth(250);
 
-        // Make the button update instantly as the user types the page range
         pageRangeInput.textProperty().addListener((obs, oldVal, newVal) -> updateActionBtnState());
 
         addToolbarItem(pageRangeInput);
@@ -52,7 +55,6 @@ public class DeletePagesController extends BaseToolController {
             File tempMerged = null;
             String sourcePath;
 
-            // If multiple files are added, merge them first before deleting pages
             if (filePaths.size() > 1) {
                 tempMerged = File.createTempFile("merged_temp", ".pdf");
                 mergeDocumentsSafe(filePaths, tempMerged);
@@ -76,7 +78,11 @@ public class DeletePagesController extends BaseToolController {
                 finalDoc.save(destination);
             } finally {
                 if (tempMerged != null && tempMerged.exists()) {
-                    tempMerged.delete();
+                    boolean deleted = tempMerged.delete();
+                    if (!deleted) {
+                        // FIX: Use Logger instead of System.err
+                        LOGGER.log(Level.WARNING, "Failed to delete temporary file: {0}", tempMerged.getAbsolutePath());
+                    }
                 }
             }
         });
@@ -84,7 +90,6 @@ public class DeletePagesController extends BaseToolController {
 
     private Set<Integer> parsePageRange(String rangeText, int maxPages) {
         Set<Integer> pages = new HashSet<>();
-        // Replace spaces with commas so spaces don't break the parsing
         String normalizedText = rangeText.replaceAll("\\s+", ",");
         String[] parts = normalizedText.split(",");
         
@@ -104,14 +109,16 @@ public class DeletePagesController extends BaseToolController {
                     int pageNum = Integer.parseInt(part);
                     if (pageNum <= maxPages) pages.add(pageNum);
                 }
-            } catch (NumberFormatException ignored) {}
+            } catch (NumberFormatException ignored) {
+                // Optionally log this at a lower level if debugging is needed
+                LOGGER.log(Level.FINE, "Ignored invalid page number format: {0}", part);
+            }
         }
         return pages;
     }
 
     @Override
     protected boolean isInputValid() {
-        // FIXED: Used pageRangeInput instead of pagesField
         if (fileListView.getItems().isEmpty() || pageRangeInput.getText().trim().isEmpty()) {
             return false; 
         }

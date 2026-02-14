@@ -22,6 +22,11 @@ import java.util.stream.Collectors;
 
 public class PageNumberController extends BaseToolController {
 
+    private static final String LANG_BENGALI = "Bengali";
+    private static final String LANG_HINDI = "Hindi";
+    private static final String LANG_FRENCH = "French";
+    private static final String LANG_SPANISH = "Spanish";
+
     private ComboBox<String> positionCombo;
     private ComboBox<String> styleCombo;
     private ComboBox<String> langCombo;
@@ -156,17 +161,17 @@ public class PageNumberController extends BaseToolController {
 
     private String formatPageText(int current, int total, String style, String lang) {
         String pageWord = switch (lang) {
-            case "Bengali" -> "পৃষ্ঠা";
-            case "Hindi" -> "पृष्ठ";
-            case "French" -> "Page";
-            case "Spanish" -> "Página";
+            case LANG_BENGALI -> "পৃষ্ঠা";
+            case LANG_HINDI -> "पृष्ठ";
+            case LANG_FRENCH -> "Page";
+            case LANG_SPANISH -> "Página";
             default -> "Page";
         };
         String ofWord = switch (lang) {
-            case "Bengali" -> "এর";
-            case "Hindi" -> "का";
-            case "French" -> "sur";
-            case "Spanish" -> "de";
+            case LANG_BENGALI -> "এর";
+            case LANG_HINDI -> "का";
+            case LANG_FRENCH -> "sur";
+            case LANG_SPANISH -> "de";
             default -> "of";
         };
 

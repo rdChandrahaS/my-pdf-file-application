@@ -10,6 +10,10 @@ import java.util.ServiceLoader;
  * implementations at runtime without hardcoding them.
  */
 public class ToolRegistry {
+
+    private ToolRegistry() {
+        throw new IllegalStateException("Utility class");
+    }
     
     /** The internal list of discovered and loaded tools. */
     private static final List<Tool> tools = new ArrayList<>();

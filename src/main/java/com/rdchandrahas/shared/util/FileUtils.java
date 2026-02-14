@@ -6,6 +6,10 @@ package com.rdchandrahas.shared.util;
  */
 public class FileUtils {
 
+    private FileUtils() {
+        throw new IllegalStateException("Utility class");
+    }
+    
     /**
      * Converts a raw byte count into a human-readable format (B, KB, MB, or GB).
      * This is used throughout the UI to display file sizes in lists and grids.
