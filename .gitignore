@@ -1,38 +1,37 @@
-# Compiled Java classes
+# ==========================================
+# 1. Compiled Output & IDEs
+# ==========================================
 target/
 *.class
 
-# IDE files
+# IDE - Visual Studio Code
+.vscode/
+
+# IDE - Eclipse & IntelliJ
 .project
 .classpath
 .settings/
 .idea/
 *.iml
-*.iws
 
-# OS generated files
-.DS_Store
-Thumbs.db
-
-# Temporary PDF/Image results (prevent uploading your test files)
+# ==========================================
+# 2. UI Resources & Icons (ESSENTIAL)
+# ==========================================
+# Ignore all generic images/PDFs from the root or test folders
 *.pdf
 *.jpg
 *.png
-!src/main/resources/icons/*.png
+*.ico
 
-# Logs
+# EXPLICITLY KEEP your UI icons and app icons
+!src/main/resources/icons/
+!src/main/resources/icons/**/*.png
+!src/main/resources/icons/**/*.ico
+
+# ==========================================
+# 3. Temp Files & OS
+# ==========================================
+PDFGear_*
+.DS_Store
+Thumbs.db
 *.log
-
-# Project Output
-target/
-dist/
-
-# JavaFX / jlink outputs
-pdfgear-image/
-pdfgear-dist/
-
-# Packaging temp files
-*.deb
-*.exe
-*.msi
-*.rpm
