@@ -1,4 +1,3 @@
-// src/main/java/com/rdchandrahas/ui/DeletePagesController.java
 package com.rdchandrahas.ui;
 
 import com.rdchandrahas.shared.model.FileItem;

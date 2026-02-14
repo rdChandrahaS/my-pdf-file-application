@@ -40,8 +40,8 @@ public class RearrangePagesController extends BaseToolController {
 
         processWithSaveDialog("Save Rearranged PDF", "rearranged_document.pdf", (destination) -> {
             
-            // Note: If multiple files are added, this processes only the first one to avoid logic conflicts.
-            // If you want it to merge them all first, you can reuse the merge logic from previous controllers.
+            // If multiple files are added, this processes only the first one to avoid logic conflicts.
+            // To merge them all first, reuse the merge logic from previous controllers.
             FileItem firstItem = (FileItem) fileListView.getItems().get(0);
 
             try (PDDocument sourceDoc = loadDocumentSafe(firstItem.getPath());

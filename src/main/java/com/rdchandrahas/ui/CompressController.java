@@ -22,17 +22,27 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 
+/**
+ * CompressController manages the logic for reducing PDF file sizes.
+ * It features an iterative compression engine that progressively adjust image 
+ * quality and dimensions to meet a specific target size or percentage.
+ */
 public class CompressController extends BaseToolController {
 
     private ComboBox<String> modeComboBox;
     private TextField valueInput;
     private ComboBox<String> unitComboBox;
 
+    /**
+     * Configures the compression-specific toolbar UI, including mode selection 
+     * (Percentage vs Target Size) and dynamic input prompts.
+     */
     @Override
     protected void onInitialize() {
         setTitle("Compress PDF");
         setActionText("Compress & Save");
 
+        // --- UI Component Initialization ---
         modeComboBox = new ComboBox<>();
         modeComboBox.getItems().addAll("By Percentage", "By Target Size");
         modeComboBox.getSelectionModel().selectFirst();
@@ -45,7 +55,7 @@ public class CompressController extends BaseToolController {
         unitComboBox.getItems().addAll("%");
         unitComboBox.getSelectionModel().selectFirst();
 
-        // Dynamically change the UI based on the mode selected
+        // Dynamically change the UI behavior based on the mode selected
         modeComboBox.setOnAction(e -> {
             if (modeComboBox.getValue().equals("By Percentage")) {
                 unitComboBox.getItems().setAll("%");
@@ -58,6 +68,7 @@ public class CompressController extends BaseToolController {
             }
         });
 
+        // Add components to the BaseToolController's custom toolbar area
         addToolbarItem(modeComboBox, valueInput, unitComboBox);
     }
 
@@ -66,73 +77,74 @@ public class CompressController extends BaseToolController {
         addFiles("PDF Files", "*.pdf");
     }
 
+    /**
+     * Prepares the compression task by calculating the target size and 
+     * initiating the iterative processing engine via the save dialog workflow.
+     */
     @Override
     protected void handleAction() {
-        if (valueInput.getText().trim().isEmpty()) {
+        String input = valueInput.getText().trim();
+        if (input.isEmpty()) {
             showAlert(Alert.AlertType.WARNING, "Missing Input", "Please enter a compression value.");
             return;
         }
 
         double inputValue;
         try {
-            inputValue = Double.parseDouble(valueInput.getText().trim());
+            inputValue = Double.parseDouble(input);
         } catch (NumberFormatException e) {
             showAlert(Alert.AlertType.ERROR, "Invalid Input", "Please enter a valid number.");
             return;
         }
 
         processWithSaveDialog("Save Compressed PDF", "compressed_document.pdf", (destination) -> {
-            // Processing only the first file in this example for exact size targeting.
-            // If there are multiple, they are merged first.
-            FileItem firstItem = (FileItem) fileListView.getItems().get(0);
+            // Note: Currently processes the first selected file for precision targeting
+            FileItem firstItem = fileListView.getItems().get(0);
             File sourceFile = new File(firstItem.getPath());
 
             long originalSizeBytes = sourceFile.length();
             long targetSizeBytes;
 
+            // --- Target Calculation ---
             if (modeComboBox.getValue().equals("By Percentage")) {
-                // E.g., user enters 40%. The target is 60% of original size.
                 if (inputValue <= 0 || inputValue >= 100) {
                     throw new IllegalArgumentException("Percentage must be between 1 and 99.");
                 }
                 double factor = 1.0 - (inputValue / 100.0);
                 targetSizeBytes = (long) (originalSizeBytes * factor);
             } else {
-                // By Target Size
-                if (unitComboBox.getValue().equals("MB")) {
-                    targetSizeBytes = (long) (inputValue * 1024 * 1024);
-                } else {
-                    targetSizeBytes = (long) (inputValue * 1024);
-                }
+                targetSizeBytes = unitComboBox.getValue().equals("MB") 
+                        ? (long) (inputValue * 1024 * 1024) 
+                        : (long) (inputValue * 1024);
             }
 
+            // Optimization: If the file is already under the target, just copy it
             if (targetSizeBytes >= originalSizeBytes) {
-                // If target is larger than original, just copy it to save time
                 Files.copy(sourceFile.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING);
                 Platform.runLater(() -> showAlert(Alert.AlertType.INFORMATION, "Notice", 
                     "The original file is already smaller than your target size. File copied as-is."));
                 return;
             }
 
-            // Execute Iterative Compression Engine
+            // Launch the iterative engine
             executeIterativeCompression(sourceFile, destination, targetSizeBytes);
         });
     }
 
     /**
-     * Iterative engine that attempts to hit the target size by progressively 
-     * lowering image quality and scaling down dimensions.
+     * Progressively applies more aggressive compression strategies until 
+     * the target size is reached or strategies are exhausted.
      */
     private void executeIterativeCompression(File sourceFile, File destination, long targetSizeBytes) throws Exception {
         byte[] bestResult = null;
         
-        // Define our compression steps: { jpegQuality, imageScaleFactor }
+        // Strategy matrix: { JPEG Quality (0.0-1.0), Image Scale Factor (0.0-1.0) }
         float[][] strategies = {
-            {0.8f, 1.0f}, // High quality, original size
-            {0.6f, 1.0f}, // Medium quality, original size
-            {0.4f, 0.8f}, // Low quality, slightly shrunk dimensions
-            {0.2f, 0.5f}, // Very low quality, half dimensions
-            {0.1f, 0.3f}  // Extreme compression, tiny dimensions
+            {0.8f, 1.0f}, // High quality, original dimensions
+            {0.6f, 1.0f}, // Medium quality, original dimensions
+            {0.4f, 0.8f}, // Low quality, 80% dimensions
+            {0.2f, 0.5f}, // Very low quality, 50% dimensions
+            {0.1f, 0.3f}  // Extreme compression
         };
 
         for (float[] strategy : strategies) {
@@ -147,14 +159,13 @@ public class CompressController extends BaseToolController {
                 
                 bestResult = baos.toByteArray();
                 
-                // If we successfully hit the target size, stop iterating!
+                // Exit early if we hit the user's target size
                 if (bestResult.length <= targetSizeBytes) {
                     break;
                 }
             }
         }
 
-        // Write the best achievable result to the destination
         if (bestResult != null) {
             Files.write(destination.toPath(), bestResult);
         } else {
@@ -162,6 +173,9 @@ public class CompressController extends BaseToolController {
         }
     }
 
+    /**
+     * Traverses the PDF resources to find and re-encode images with new quality and scale.
+     */
     private void compressImagesInDocument(PDDocument doc, float quality, float scaleFactor) throws Exception {
         for (PDPage page : doc.getPages()) {
             PDResources resources = page.getResources();
@@ -174,23 +188,22 @@ public class CompressController extends BaseToolController {
                     BufferedImage bImage = pdImage.getImage();
                     if (bImage == null) continue;
 
-                    // Scale image dimensions down if needed
+                    // Calculate new dimensions
                     int newWidth = (int) (bImage.getWidth() * scaleFactor);
                     int newHeight = (int) (bImage.getHeight() * scaleFactor);
                     
-                    if (newWidth < 10 || newHeight < 10) continue; // Prevent collapsing to zero
+                    if (newWidth < 10 || newHeight < 10) continue;
 
+                    // Resize using AWT
                     BufferedImage resizedImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
                     Graphics2D g2d = resizedImage.createGraphics();
-                    
-                    // Fast scaling for performance
                     g2d.drawImage(bImage.getScaledInstance(newWidth, newHeight, Image.SCALE_FAST), 0, 0, null);
                     g2d.dispose();
 
-                    // Re-encode as highly compressed JPEG
+                    // Re-encode as a compressed JPEG XObject
                     PDImageXObject compressedImage = JPEGFactory.createFromImage(doc, resizedImage, quality);
                     
-                    // Replace the bloated image with the compressed one in the document
+                    // Replace the original resource in the PDF page
                     resources.put(name, compressedImage);
                 }
             }

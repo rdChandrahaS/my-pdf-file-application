@@ -1,4 +1,3 @@
-// PdfToImageController.java
 package com.rdchandrahas.ui;
 
 import com.rdchandrahas.shared.model.FileItem;
@@ -57,7 +56,6 @@ public class PdfToImageController extends BaseToolController {
         String format = formatCombo.getValue().toLowerCase();
         int dpi = dpiCombo.getValue().contains("300") ? 300 : 150;
         
-        // PNGs support transparency (ARGB), JPEGs do not (RGB)
         ImageType imageType = format.equals("png") ? ImageType.ARGB : ImageType.RGB;
 
         setBusy(true, actionBtn);
@@ -69,7 +67,6 @@ public class PdfToImageController extends BaseToolController {
                     File sourceFile = new File(item.getPath());
                     String baseName = sourceFile.getName().replaceFirst("[.][^.]+$", "");
 
-                    // Enterprise safety: Use base controller's memory-safe loader
                     try (PDDocument doc = loadDocumentSafe(item.getPath())) {
                         PDFRenderer renderer = new PDFRenderer(doc);
                         

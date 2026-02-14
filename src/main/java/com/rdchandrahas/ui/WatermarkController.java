@@ -63,8 +63,7 @@ public class WatermarkController extends BaseToolController {
         fontCombo = new ComboBox<>();
         fontCombo.getItems().addAll("Helvetica", "Times Roman", "Courier", "Manual Select (.ttf)...");
         
-        // FIX: You must call this to populate fonts from the local /fonts folder
-        loadAvailableFonts(); 
+        loadAvailableFonts(); // To load all local fonts
         
         fontCombo.getSelectionModel().selectFirst();
 
