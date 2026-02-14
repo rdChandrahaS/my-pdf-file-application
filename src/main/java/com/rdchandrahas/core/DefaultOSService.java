@@ -11,6 +11,14 @@ import java.util.List;
  * delegating web browsing tasks to the native operating system.
  */
 public class DefaultOSService implements OSService {
+
+    // FIX: Define constants to avoid "Hardcoded String" issues for static paths
+    private static final String MAC_FONT_USER = "/Library/Fonts";
+    private static final String MAC_FONT_SYSTEM = "/System/Library/Fonts";
+    private static final String LINUX_FONT_SHARE = "/usr/share/fonts";
+    private static final String LINUX_FONT_LOCAL = "/usr/local/share/fonts";
+    private static final String LOCAL_APP_FONTS = "fonts";
+
     private final HostServices hostServices;
 
     /**
@@ -32,18 +40,21 @@ public class DefaultOSService implements OSService {
         String os = System.getProperty("os.name").toLowerCase();
 
         if (os.contains("win")) {
-            // Standard Windows font location
-            dirs.add(new File("C:\\Windows\\Fonts"));
+            // FIX: Use "SystemRoot" environment variable (e.g., C:\Windows) instead of hardcoding "C:"
+            String winDir = System.getenv("SystemRoot");
+            if (winDir == null) {
+                winDir = "C:\\Windows"; // Fallback only if env var is missing
+            }
+            dirs.add(new File(winDir, "Fonts"));
         } else if (os.contains("mac")) {
-            // Common macOS font locations
-            dirs.add(new File("/Library/Fonts"));
-            dirs.add(new File("/System/Library/Fonts"));
+            // Use constants
+            dirs.add(new File(MAC_FONT_USER));
+            dirs.add(new File(MAC_FONT_SYSTEM));
         } else {
-            // Standard Linux/Unix font locations
-            dirs.add(new File("/usr/share/fonts"));
-            dirs.add(new File("/usr/local/share/fonts"));
-            // Custom relative path for distributed packages
-            dirs.add(new File("fonts")); 
+            // Use constants for Linux/Unix
+            dirs.add(new File(LINUX_FONT_SHARE));
+            dirs.add(new File(LINUX_FONT_LOCAL));
+            dirs.add(new File(LOCAL_APP_FONTS)); 
         }
         return dirs;
     }
