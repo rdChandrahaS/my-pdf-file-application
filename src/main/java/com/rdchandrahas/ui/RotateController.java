@@ -20,15 +20,16 @@ import org.apache.pdfbox.rendering.PDFRenderer;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public class RotateController extends BaseToolController {
 
+    private static final Logger LOGGER = Logger.getLogger(RotateController.class.getName());
     private ComboBox<String> angleComboBox;
     private TextField pageRangeInput;
     private Button previewBtn;
@@ -65,27 +66,37 @@ public class RotateController extends BaseToolController {
             String rangeText = pageRangeInput.getText().trim();
 
             List<String> filePaths = fileListView.getItems().stream()
-                    .map(item -> ((FileItem) item).getPath())
+                    .map(FileItem::getPath)
                     .collect(Collectors.toList());
 
-            if (filePaths.size() > 1) {
-                mergeDocumentsSafe(filePaths, destination);
-            } else {
-                Files.copy(new File(filePaths.get(0)).toPath(), destination.toPath(),
-                        StandardCopyOption.REPLACE_EXISTING);
-            }
-
-            try (PDDocument doc = loadDocumentSafe(destination.getAbsolutePath())) {
-                Set<Integer> pagesToRotate = parsePageRange(rangeText, doc.getNumberOfPages());
-
-                int pageNum = 1;
-                for (PDPage page : doc.getPages()) {
-                    if (pagesToRotate.contains(pageNum)) {
-                        page.setRotation(page.getRotation() + rotationAngle);
-                    }
-                    pageNum++;
+            // FIX: Use a temporary file to avoid Read/Write file locks
+            File tempMerged = null;
+            try {
+                String sourcePath;
+                if (filePaths.size() > 1) {
+                    tempMerged = File.createTempFile("rotate_merged_", ".pdf");
+                    mergeDocumentsSafe(filePaths, tempMerged);
+                    sourcePath = tempMerged.getAbsolutePath();
+                } else {
+                    sourcePath = filePaths.get(0);
                 }
-                doc.save(destination);
+
+                // Process safely from source to destination
+                processPdfSafely(new File(sourcePath), destination, (doc) -> {
+                    Set<Integer> pagesToRotate = parsePageRange(rangeText, doc.getNumberOfPages());
+                    int pageNum = 1;
+                    for (PDPage page : doc.getPages()) {
+                        if (pagesToRotate.contains(pageNum)) {
+                            page.setRotation(page.getRotation() + rotationAngle);
+                        }
+                        pageNum++;
+                    }
+                });
+
+            } finally {
+                if (tempMerged != null && tempMerged.exists() && !tempMerged.delete()) {
+                    LOGGER.log(Level.WARNING, "Failed to delete temp file: {0}", tempMerged.getAbsolutePath());
+                }
             }
         });
     }
@@ -96,7 +107,7 @@ public class RotateController extends BaseToolController {
             return;
         }
 
-        FileItem firstItem = (FileItem) fileListView.getItems().get(0);
+        FileItem firstItem = fileListView.getItems().get(0);
         int rotationAngle = getSelectedAngle();
         String rangeText = pageRangeInput.getText().trim();
 
@@ -135,7 +146,6 @@ public class RotateController extends BaseToolController {
         imageView.setPreserveRatio(true);
         imageView.setFitHeight(500);
         imageView.setFitWidth(500);
-
         imageView.setRotate(rotationAngle);
 
         VBox layout = new VBox(15, imageView);
@@ -193,7 +203,6 @@ public class RotateController extends BaseToolController {
         if (fileListView.getItems().isEmpty()) {
             return false;
         }
-        // Check if ALL files are actually PDFs
         for (FileItem item : fileListView.getItems()) {
             if (!item.getPath().toLowerCase().endsWith(".pdf")) {
                 return false;

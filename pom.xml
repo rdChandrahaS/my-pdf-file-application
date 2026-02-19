@@ -70,15 +70,6 @@
                 <version>0.0.8</version>
                 <configuration>
                     <mainClass>com.rdchandrahas.Launcher</mainClass>
-                </configuration>
-            </plugin>
-
-            <plugin>
-                <groupId>org.openjfx</groupId>
-                <artifactId>javafx-maven-plugin</artifactId>
-                <version>0.0.8</version>
-                <configuration>
-                    <mainClass>com.rdchandrahas.MainApp</mainClass>
                     <launcher>PDFGear</launcher>
                     <jlinkImageName>pdfgear-image</jlinkImageName>
                     <jlinkZipName>pdfgear-dist</jlinkZipName>
@@ -91,7 +82,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.rdchandrahas.MainApp</mainClass>
+                            <mainClass>com.rdchandrahas.Launcher</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>

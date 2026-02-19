@@ -3,73 +3,115 @@ package com.rdchandrahas.core;
 import org.apache.pdfbox.multipdf.PDFMergerUtility;
 import org.apache.pdfbox.io.MemoryUsageSetting;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
- * PdfService provides concrete implementations for PDF manipulation tasks using Apache PDFBox.
- * It manages memory usage strategies dynamically based on file sizes and user-defined limits,
- * ensuring stability when processing large documents.
+ * PdfService provides concrete implementations for PDF manipulation tasks.
+ * It uses a circular batching strategy to process massive datasets (e.g., 10,000+ files)
+ * while respecting UI-defined memory limits and OS file handle constraints.
  */
 public class PdfService implements PdfProcessor {
 
-    /** Default limit: 1 GB (stored in bytes). A value of -1 indicates Unrestricted RAM usage. */
-    private static long memoryLimitBytes = 1024L * 1024L * 1024L;
+    private static final Logger LOGGER = Logger.getLogger(PdfService.class.getName());
+    
+    // Controlled by MainController via the UI dropdown
+    private static long memoryLimitBytes = 1024L * 1024L * 1024L; // Default 1GB
+    
+    // Safety limit to prevent "Too many open files" OS errors
+    private static final int MAX_OPEN_FILES_BATCH = 500;
 
-    /**
-     * Updates the global memory limit for PDF processing operations.
-     * * @param bytes Limit in bytes, or -1 for unrestricted RAM usage.
-     */
     public static void setMemoryLimit(long bytes) {
         memoryLimitBytes = bytes;
-        System.out.println("Memory limit updated to: " + (bytes == -1 ? "Unrestricted" : bytes + " bytes"));
+        LOGGER.log(Level.INFO, "Global memory limit updated to: {0} bytes", bytes);
     }
 
-    /**
-     * Merges multiple PDF files into a single destination file.
-     * Chooses between RAM-only and Disk-based processing based on the configured memory limit.
-     * * @param inputFiles List of source file paths.
-     * @param outputFile Path for the resulting merged PDF.
-     * @throws Exception if an I/O error or PDF processing error occurs.
-     */
+    public static MemoryUsageSetting getGlobalMemorySetting() {
+        return (memoryLimitBytes == -1) ? 
+            MemoryUsageSetting.setupMainMemoryOnly() : 
+            MemoryUsageSetting.setupMixed(memoryLimitBytes);
+    }
+
     @Override
     public void merge(List<String> inputFiles, String outputFile) throws Exception {
-        PDFMergerUtility merger = new PDFMergerUtility();
-        merger.setDestinationFileName(outputFile);
-
-        long totalInputSize = 0;
+        List<String> tempFilePaths = new ArrayList<>();
+        List<String> currentChunk = new ArrayList<>();
         
-        // Add source files to the utility and calculate the aggregate size for memory strategy selection
-        for (String path : inputFiles) {
-            File f = new File(path);
-            merger.addSource(f);
-            if (f.exists()) {
-                totalInputSize += f.length();
+        long currentChunkSizeBytes = 0;
+        int batchCount = 1;
+
+        LOGGER.log(Level.INFO, "Initiating mass merge for {0} files.", inputFiles.size());
+
+        for (int i = 0; i < inputFiles.size(); i++) {
+            File f = new File(inputFiles.get(i));
+            if (!f.exists()) continue;
+
+            long fileSize = f.length();
+
+            // Circular Queue Batching Logic:
+            // Process the current batch if adding the next file would exceed the RAM limit 
+            // OR if we hit the OS open-file handle limit.
+            boolean limitExceeded = (memoryLimitBytes != -1 && (currentChunkSizeBytes + fileSize) > memoryLimitBytes);
+            boolean handleLimitReached = (currentChunk.size() >= MAX_OPEN_FILES_BATCH);
+
+            if (!currentChunk.isEmpty() && (limitExceeded || handleLimitReached)) {
+                String reason = limitExceeded ? "RAM limit" : "File handle limit";
+                LOGGER.log(Level.INFO, "Batch {0} full ({1}). Merging to temp storage.", new Object[]{batchCount, reason});
+                
+                File tempPdf = File.createTempFile("merge_batch_" + batchCount + "_", ".pdf");
+                tempPdf.deleteOnExit();
+                
+                executeMergeInternal(currentChunk, tempPdf.getAbsolutePath());
+                tempFilePaths.add(tempPdf.getAbsolutePath());
+                
+                // Reset queue for the next batch
+                currentChunk.clear();
+                currentChunkSizeBytes = 0;
+                batchCount++;
+            }
+
+            currentChunk.add(f.getAbsolutePath());
+            currentChunkSizeBytes += fileSize;
+        }
+
+        // Handle the final batch
+        if (!currentChunk.isEmpty()) {
+            if (tempFilePaths.isEmpty()) {
+                // Efficiency: If everything fit in one batch, save directly
+                executeMergeInternal(currentChunk, outputFile);
+                LOGGER.log(Level.INFO, "Merge completed in a single batch.");
+                return;
+            } else {
+                File tempPdf = File.createTempFile("merge_batch_final_", ".pdf");
+                tempPdf.deleteOnExit();
+                executeMergeInternal(currentChunk, tempPdf.getAbsolutePath());
+                tempFilePaths.add(tempPdf.getAbsolutePath());
             }
         }
 
-        MemoryUsageSetting settings;
-
-        // Logic: Use Main Memory (RAM) if unrestricted or if total size is within the defined limit.
-        // Otherwise, use temporary files on Disk to prevent OutOfMemoryErrors.
-        if (memoryLimitBytes == -1 || totalInputSize < memoryLimitBytes) {
-            System.out.println("Processing in RAM. (Total Size: " + formatSize(totalInputSize) + ")");
-            settings = MemoryUsageSetting.setupMainMemoryOnly();
-        } else {
-            System.out.println("Processing on Disk/Storage. (Total Size: " + formatSize(totalInputSize) + " exceeds limit)");
-            settings = MemoryUsageSetting.setupTempFileOnly();
+        // Final step: Combine all temporary batch files into the destination
+        LOGGER.log(Level.INFO, "Combining {0} temporary batches into final file: {1}", new Object[]{tempFilePaths.size(), outputFile});
+        executeMergeInternal(tempFilePaths, outputFile);
+        
+        // Cleanup temporary disk space
+        for (String tempPath : tempFilePaths) {
+            new File(tempPath).delete();
         }
-
-        merger.mergeDocuments(settings);
+        
+        LOGGER.info("Massive merge operation successful.");
     }
-    
-    /**
-     * Internal helper to convert byte counts into human-readable strings (e.g., "10.5 MB").
-     * * @param v Size in bytes.
-     * @return Formatted size string.
-     */
-    private String formatSize(long v) {
-        if (v < 1024) return v + " B";
-        int z = (63 - Long.numberOfLeadingZeros(v)) / 10;
-        return String.format("%.1f %sB", (double)v / (1L << (z*10)), " KMGTPE".charAt(z));
+
+    private void executeMergeInternal(List<String> filesToMerge, String outputPath) throws Exception {
+        PDFMergerUtility merger = new PDFMergerUtility();
+        merger.setDestinationFileName(outputPath);
+        
+        for (String path : filesToMerge) {
+            merger.addSource(new File(path));
+        }
+        
+        // Use the mixed memory setting to protect the JVM during the final write
+        merger.mergeDocuments(getGlobalMemorySetting());
     }
 }

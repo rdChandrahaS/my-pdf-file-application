@@ -2,12 +2,11 @@ package com.rdchandrahas.ui;
 
 import com.rdchandrahas.shared.model.FileItem;
 import com.rdchandrahas.ui.base.BaseToolController;
-import javafx.scene.control.*;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.PDPageContentStream;
-import org.apache.pdfbox.pdmodel.common.PDRectangle;
-import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
+import com.rdchandrahas.core.ImageToPdfService;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class ImageToPdfController extends BaseToolController {
     private ComboBox<String> layout;
@@ -24,23 +23,19 @@ public class ImageToPdfController extends BaseToolController {
 
     @Override
     protected void handleAddFiles() {
-        addFiles("Images", "*.jpg", "*.png", "*.webp");
+        addFiles("Images", "*.jpg", "*.png", "*.webp", "*.jpeg");
     }
 
     @Override
     protected void handleAction() {
         processWithSaveDialog("Save PDF", "Images.pdf", (dest) -> {
-            try (PDDocument doc = createDocumentSafe()) {
-                for (FileItem item : fileListView.getItems()) {
-                    PDImageXObject img = PDImageXObject.createFromFile(item.getPath(), doc);
-                    PDPage page = new PDPage(PDRectangle.A4);
-                    doc.addPage(page);
-                    try (PDPageContentStream cs = new PDPageContentStream(doc, page)) {
-                        cs.drawImage(img, 20, 20, 550, 800);
-                    }
-                }
-                doc.save(dest);
-            }
+            // FIX: Delegate to the memory-safe ImageToPdfService instead of processing in RAM
+            List<String> imagePaths = fileListView.getItems().stream()
+                    .map(FileItem::getPath)
+                    .collect(Collectors.toList());
+            
+            ImageToPdfService service = new ImageToPdfService();
+            service.convertImagesToPdf(imagePaths, dest.getAbsolutePath());
         });
     }
 
@@ -51,8 +46,8 @@ public class ImageToPdfController extends BaseToolController {
         }
         for (FileItem item : fileListView.getItems()) {
             String path = item.getPath().toLowerCase();
-            if (!path.endsWith(".jpg") && !path.endsWith(".jpeg") && !path.endsWith(".png")) {
-                return false; // Found a non-image file
+            if (!path.endsWith(".jpg") && !path.endsWith(".jpeg") && !path.endsWith(".png") && !path.endsWith(".webp")) {
+                return false; 
             }
         }
         return true;

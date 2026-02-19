@@ -27,6 +27,9 @@ public class RearrangePagesController extends BaseToolController {
 
     @Override
     protected void handleAddFiles() {
+        // FIX: Force single-file logic to prevent user confusion. 
+        // Rearranging multiple identical documents is an edge case that causes logic bugs.
+        fileListView.getItems().clear(); 
         addFiles("PDF Files", "*.pdf");
     }
 
@@ -40,13 +43,10 @@ public class RearrangePagesController extends BaseToolController {
 
         processWithSaveDialog("Save Rearranged PDF", "rearranged_document.pdf", (destination) -> {
 
-            // If multiple files are added, this processes only the first one to avoid logic
-            // conflicts.
-            // To merge them all first, reuse the merge logic from previous controllers.
-            FileItem firstItem = (FileItem) fileListView.getItems().get(0);
+            FileItem firstItem = fileListView.getItems().get(0);
 
             try (PDDocument sourceDoc = loadDocumentSafe(firstItem.getPath());
-                    PDDocument finalDoc = createDocumentSafe()) {
+                 PDDocument finalDoc = createDocumentSafe()) {
 
                 int maxPages = sourceDoc.getNumberOfPages();
                 List<Integer> newOrder = parsePageOrder(orderText, maxPages);
@@ -68,7 +68,7 @@ public class RearrangePagesController extends BaseToolController {
 
     private List<Integer> parsePageOrder(String rangeText, int maxPages) {
         List<Integer> pages = new ArrayList<>();
-        String normalizedText = rangeText.replaceAll("\\s+", ""); // Remove all spaces
+        String normalizedText = rangeText.replaceAll("\\s+", ""); 
         String[] parts = normalizedText.split(",");
 
         for (String part : parts) {
@@ -80,8 +80,6 @@ public class RearrangePagesController extends BaseToolController {
                     int start = Integer.parseInt(bounds[0]);
                     int end = Integer.parseInt(bounds[1]);
 
-                    // Advanced feature: Supports reversing order (e.g., 10-5 adds pages
-                    // 10,9,8,7,6,5)
                     if (start <= end) {
                         for (int i = start; i <= end; i++)
                             pages.add(i);
@@ -103,7 +101,6 @@ public class RearrangePagesController extends BaseToolController {
         if (fileListView.getItems().isEmpty()) {
             return false;
         }
-        // Check if ALL files are actually PDFs
         for (FileItem item : fileListView.getItems()) {
             if (!item.getPath().toLowerCase().endsWith(".pdf")) {
                 return false;

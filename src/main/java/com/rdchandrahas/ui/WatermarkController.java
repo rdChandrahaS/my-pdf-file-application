@@ -4,8 +4,6 @@ import com.rdchandrahas.shared.model.FileItem;
 import com.rdchandrahas.ui.base.BaseToolController;
 import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
@@ -14,7 +12,6 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
-import javafx.stage.Modality;
 import javafx.stage.Stage;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -31,134 +28,111 @@ import org.apache.pdfbox.util.Matrix;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public class WatermarkController extends BaseToolController {
 
-    private static final String FONT_COURIER = "Courier";
-    private static final String FONT_TIMES = "Times Roman";
+    private static final Logger LOGGER = Logger.getLogger(WatermarkController.class.getName());
+    
+    // Constants for SonarQube compliance
     private static final String FONT_HELVETICA = "Helvetica";
+    private static final String FONT_TIMES = "Times Roman";
+    private static final String FONT_COURIER = "Courier";
+    private static final String FONT_MANUAL = "Manual Select (.ttf)...";
 
     private TextField watermarkInput;
     private ColorPicker colorPicker;
     private ComboBox<String> fontCombo;
-    private CheckBox boldCheck;
-    private CheckBox italicCheck;
+    private CheckBox boldCheck, italicCheck;
     private ComboBox<String> sizeCombo;
-    private Slider rotateSlider;
-    private Slider opacitySlider;
+    private Slider rotateSlider, opacitySlider;
     private Button previewBtn;
-
     private File manualCustomFile = null;
 
     @Override
     protected void onInitialize() {
         setTitle("Watermark PDF");
         setActionText("Apply Watermark");
-
+        
         watermarkInput = new TextField("CONFIDENTIAL");
-        watermarkInput.setPrefWidth(150);
+        watermarkInput.textProperty().addListener((o, old, n) -> updateActionBtnState());
         
-        // This makes the button update instantly as the user types the watermark text
-        watermarkInput.textProperty().addListener((obs, oldVal, newVal) -> updateActionBtnState());
-
         colorPicker = new ColorPicker(Color.DARKGRAY);
-
+        
         fontCombo = new ComboBox<>();
-        fontCombo.getItems().addAll("Helvetica", "Times Roman", "Courier", "Manual Select (.ttf)...");
-        
-        loadAvailableFonts(); // To load all local fonts
-        
+        fontCombo.getItems().addAll(FONT_HELVETICA, FONT_TIMES, FONT_COURIER, FONT_MANUAL);
         fontCombo.getSelectionModel().selectFirst();
-
+        
+        // FIX: Add listener to open file chooser when Manual is selected
         fontCombo.setOnAction(e -> {
-            if ("Manual Select (.ttf)...".equals(fontCombo.getValue())) {
-                FileChooser chooser = new FileChooser();
-                chooser.setTitle("Select TrueType Font");
-                chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("TrueType Fonts", "*.ttf"));
-                File selected = chooser.showOpenDialog(actionBtn.getScene().getWindow());
-                
+            if (FONT_MANUAL.equals(fontCombo.getValue())) {
+                FileChooser fc = new FileChooser();
+                fc.setTitle("Select TTF Font");
+                fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("TrueType Fonts", "*.ttf"));
+                File selected = fc.showOpenDialog(actionBtn.getScene().getWindow());
                 if (selected != null) {
                     manualCustomFile = selected;
-                    boldCheck.setDisable(true);
-                    italicCheck.setDisable(true);
                 } else {
-                    fontCombo.getSelectionModel().selectFirst();
+                    fontCombo.getSelectionModel().selectFirst(); // Revert if cancelled
                 }
             } else {
-                manualCustomFile = null;
-                // Only enable modifiers for Standard Fonts
-                boolean isStandard = isStandardFont(fontCombo.getValue());
-                boldCheck.setDisable(!isStandard);
-                italicCheck.setDisable(!isStandard);
+                manualCustomFile = null; // Reset if they switch back to standard fonts
             }
         });
-
-        boldCheck = new CheckBox();
-        Label boldLabel = new Label("Bold");
-        italicCheck = new CheckBox();
-        Label italicLabel = new Label("Italic");
-
+        
+        boldCheck = new CheckBox("Bold");
+        italicCheck = new CheckBox("Italic");
+        
         sizeCombo = new ComboBox<>();
-        sizeCombo.getItems().addAll("24", "36", "48", "72", "96", "120", "150");
+        sizeCombo.getItems().addAll("24", "48", "72", "120");
         sizeCombo.getSelectionModel().select("72");
         sizeCombo.setEditable(true);
-
+        
         rotateSlider = new Slider(0, 360, 45);
-        rotateSlider.setShowTickMarks(true);
-        rotateSlider.setShowTickLabels(true);
-        rotateSlider.setMajorTickUnit(45);
-        rotateSlider.setPrefWidth(120);
-
         opacitySlider = new Slider(0.1, 1.0, 0.3);
-        opacitySlider.setShowTickMarks(true);
-        opacitySlider.setMajorTickUnit(0.2);
-        opacitySlider.setPrefWidth(100);
-
+        
         previewBtn = new Button("Preview");
-        previewBtn.getStyleClass().add("button");
         previewBtn.setOnAction(e -> showPreview());
 
-        HBox row1 = new HBox(10, watermarkInput, colorPicker, fontCombo, boldCheck, boldLabel, italicCheck, italicLabel);
-        row1.setAlignment(Pos.CENTER_LEFT);
-        
-        HBox row2 = new HBox(10, new Label("Size:"), sizeCombo, new Label("Rotate:"), rotateSlider, new Label("Opacity:"), opacitySlider, previewBtn);
-        row2.setAlignment(Pos.CENTER_LEFT);
-
-        addToolbarItem(new VBox(10, row1, row2));
+        addToolbarItem(new VBox(10, 
+            new HBox(10, watermarkInput, colorPicker, fontCombo, boldCheck, italicCheck), 
+            new HBox(10, sizeCombo, rotateSlider, opacitySlider, previewBtn)
+        ));
     }
 
     @Override
-    protected void handleAddFiles() {
-        addFiles("PDF Files", "*.pdf");
+    protected void handleAddFiles() { 
+        addFiles("PDF Files", "*.pdf"); 
     }
 
     @Override
     protected void handleAction() {
-        String watermarkText = watermarkInput.getText().trim();
-        if (watermarkText.isEmpty()) {
-            showAlert(Alert.AlertType.WARNING, "Missing Text", "Please enter watermark text.");
-            return;
-        }
-
         WatermarkConfig config = getCurrentConfig();
-
         processWithSaveDialog("Save Watermarked PDF", "watermarked.pdf", (destination) -> {
-            List<String> filePaths = fileListView.getItems().stream()
-                    .map(item -> ((FileItem) item).getPath()).collect(Collectors.toList());
-
-            if (filePaths.size() > 1) mergeDocumentsSafe(filePaths, destination);
-            else Files.copy(new File(filePaths.get(0)).toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING);
-
-            try (PDDocument doc = loadDocumentSafe(destination.getAbsolutePath())) {
-                PDFont font = loadSelectedFont(doc);
-                for (PDPage page : doc.getPages()) {
-                    applyWatermark(doc, page, config, font);
+            List<String> paths = fileListView.getItems().stream().map(FileItem::getPath).collect(Collectors.toList());
+            
+            // FIX: Write merge to a Temporary File first to avoid Read/Write conflict on the same path
+            File tempMerged = File.createTempFile("watermark_merged_", ".pdf");
+            tempMerged.deleteOnExit();
+            
+            try {
+                mergeDocumentsSafe(paths, tempMerged);
+                
+                // Now read from temp file, and save to final destination
+                processPdfSafely(tempMerged, destination, (doc) -> {
+                    PDFont font = loadSelectedFont(doc);
+                    for (PDPage page : doc.getPages()) {
+                        applyWatermark(doc, page, config, font);
+                    }
+                });
+            } finally {
+                // Clean up the temp file
+                if (tempMerged.exists() && !tempMerged.delete()) {
+                    LOGGER.log(Level.WARNING, "Failed to delete temp file: {0}", tempMerged.getAbsolutePath());
                 }
-                doc.save(destination);
             }
         });
     }
@@ -168,16 +142,20 @@ public class WatermarkController extends BaseToolController {
         setBusy(true, previewBtn);
         new Thread(() -> {
             try (PDDocument doc = createDocumentSafe()) {
-                PDPage page = new PDPage(PDRectangle.A4);
+                PDPage page = new PDPage(PDRectangle.A4); 
                 doc.addPage(page);
                 applyWatermark(doc, page, config, loadSelectedFont(doc));
+                
                 BufferedImage bim = new PDFRenderer(doc).renderImageWithDPI(0, 100, ImageType.RGB);
-                Platform.runLater(() -> {
-                    setBusy(false, previewBtn);
-                    displayPreviewDialog(SwingFXUtils.toFXImage(bim, null));
+                Platform.runLater(() -> { 
+                    setBusy(false, previewBtn); 
+                    displayPreviewDialog(SwingFXUtils.toFXImage(bim, null)); 
                 });
-            } catch (Exception e) {
-                Platform.runLater(() -> { setBusy(false, previewBtn); showAlert(Alert.AlertType.ERROR, "Error", e.getMessage()); });
+            } catch (Exception e) { 
+                Platform.runLater(() -> { 
+                    setBusy(false, previewBtn); 
+                    showAlert(Alert.AlertType.ERROR, "Error", e.getMessage()); 
+                }); 
             }
         }).start();
     }
@@ -190,12 +168,14 @@ public class WatermarkController extends BaseToolController {
             cs.setNonStrokingColor(config.color);
             cs.beginText();
             cs.setFont(font, config.fontSize);
+            
             PDRectangle box = page.getMediaBox();
             float txW = font.getStringWidth(config.text) / 1000 * config.fontSize;
-            float txH = font.getFontDescriptor().getFontBoundingBox().getHeight() / 1000 * config.fontSize;
-            Matrix matrix = Matrix.getRotateInstance(Math.toRadians(config.rotation), box.getWidth()/2, box.getHeight()/2);
-            matrix.translate(-txW/2, -txH/2);
-            cs.setTextMatrix(matrix);
+            
+            Matrix m = Matrix.getRotateInstance(Math.toRadians(config.rotation), box.getWidth()/2, box.getHeight()/2);
+            m.translate(-txW/2, 0);
+            
+            cs.setTextMatrix(m);
             cs.showText(config.text);
             cs.endText();
         }
@@ -205,13 +185,10 @@ public class WatermarkController extends BaseToolController {
         if (manualCustomFile != null) return PDType0Font.load(doc, manualCustomFile);
         
         String selection = fontCombo.getValue();
-        // Check if it's a file from our /fonts folder
-        File localFile = new File("fonts", selection + ".ttf");
-        if (localFile.exists()) return PDType0Font.load(doc, localFile);
-
         boolean b = boldCheck.isSelected();
         boolean i = italicCheck.isSelected();
         
+        // FIX: Completed the missing font logic for all combinations without nested ternaries
         if (FONT_COURIER.equals(selection)) {
             if (b && i) return PDType1Font.COURIER_BOLD_OBLIQUE;
             if (b) return PDType1Font.COURIER_BOLD;
@@ -223,9 +200,8 @@ public class WatermarkController extends BaseToolController {
             if (b) return PDType1Font.TIMES_BOLD;
             if (i) return PDType1Font.TIMES_ITALIC;
             return PDType1Font.TIMES_ROMAN;
-        }
-        else {
-            // Default to Helvetica
+        } 
+        else { // FONT_HELVETICA or fallback
             if (b && i) return PDType1Font.HELVETICA_BOLD_OBLIQUE;
             if (b) return PDType1Font.HELVETICA_BOLD;
             if (i) return PDType1Font.HELVETICA_OBLIQUE;
@@ -233,44 +209,34 @@ public class WatermarkController extends BaseToolController {
         }
     }
 
-    private void loadAvailableFonts() {
-        File fontDir = new File("fonts");
-        if (!fontDir.exists()) fontDir.mkdirs();
-        File[] files = fontDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".ttf"));
-        if (files != null) {
-            for (File file : files) fontCombo.getItems().add(file.getName().replace(".ttf", ""));
-        }
-    }
-
-    private boolean isStandardFont(String name) {
-        return List.of("Helvetica", "Times Roman", "Courier").contains(name);
-    }
-
     private WatermarkConfig getCurrentConfig() {
-        Color fx = colorPicker.getValue();
-        return new WatermarkConfig(watermarkInput.getText(), Float.parseFloat(sizeCombo.getValue()),
-                new java.awt.Color((float)fx.getRed(), (float)fx.getGreen(), (float)fx.getBlue()),
-                (float)rotateSlider.getValue(), (float)opacitySlider.getValue());
+        Color c = colorPicker.getValue();
+        float size = 72; // default
+        try {
+            size = Float.parseFloat(sizeCombo.getValue());
+        } catch (NumberFormatException ignored) {}
+        
+        return new WatermarkConfig(
+            watermarkInput.getText(), 
+            size, 
+            new java.awt.Color((float)c.getRed(), (float)c.getGreen(), (float)c.getBlue()), 
+            (float)rotateSlider.getValue(), 
+            (float)opacitySlider.getValue()
+        );
     }
 
     private void displayPreviewDialog(Image img) {
-        Stage s = new Stage(); s.initModality(Modality.APPLICATION_MODAL);
-        ImageView iv = new ImageView(img); iv.setPreserveRatio(true); iv.setFitHeight(600);
-        VBox v = new VBox(iv); v.setAlignment(Pos.CENTER); v.setPadding(new Insets(20)); v.setStyle("-fx-background-color:#252525;");
-        s.setScene(new Scene(v, 500, 650)); s.show();
+        Stage s = new Stage(); 
+        ImageView iv = new ImageView(img); 
+        iv.setFitHeight(600); 
+        iv.setPreserveRatio(true);
+        s.setScene(new Scene(new VBox(iv), 500, 650)); 
+        s.show();
     }
 
     @Override
-    protected boolean isInputValid() {
-        if (fileListView.getItems().isEmpty() || watermarkInput.getText().trim().isEmpty()) {
-            return false; 
-        }
-        for (FileItem item : fileListView.getItems()) {
-            if (!item.getPath().toLowerCase().endsWith(".pdf")) {
-                return false;
-            }
-        }
-        return true; 
+    protected boolean isInputValid() { 
+        return super.isInputValid() && !watermarkInput.getText().trim().isEmpty(); 
     }
 
     private record WatermarkConfig(String text, float fontSize, java.awt.Color color, float rotation, float opacity) {}

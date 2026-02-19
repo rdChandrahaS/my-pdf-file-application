@@ -11,6 +11,8 @@ import javafx.scene.image.ImageView;
 import javafx.scene.input.*;
 import javafx.scene.layout.*;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * FileListView is a hybrid component that supports displaying files in either 
@@ -23,7 +25,6 @@ public class FileListView extends StackPane {
     private final TilePane gridPane = new TilePane();
     private final ScrollPane gridScroll = new ScrollPane(gridPane);
     
-    // KEEP: We keep this variable to track state
     private ViewMode currentMode = ViewMode.LIST;
 
     public FileListView() {
@@ -60,28 +61,49 @@ public class FileListView extends StackPane {
 
     private void refreshGrid() {
         gridPane.getChildren().clear();
-        for (int i = 0; i < items.size(); i++) {
+        
+        // MEMORY PROTECTION: TilePane is not virtualized. Attempting to render 5,000 
+        // ImageViews simultaneously will cause an OutOfMemory error.
+        // We limit the grid to 500, but the ListView can handle unlimited files safely.
+        int displayLimit = Math.min(items.size(), 500);
+        List<VBox> newCards = new ArrayList<>();
+
+        for (int i = 0; i < displayLimit; i++) {
             FileItem item = items.get(i);
-            VBox card = createGridCard(item, i);
-            gridPane.getChildren().add(card);
+            newCards.add(createGridCard(item, i));
+        }
+        
+        // FIX: Batch Add to UI to prevent stuttering
+        gridPane.getChildren().addAll(newCards);
+
+        // Notify user if grid is truncated
+        if (items.size() > displayLimit) {
+            Label warning = new Label("Showing first " + displayLimit + " thumbnails. Switch to List View to see all " + items.size() + " files.");
+            warning.setStyle("-fx-font-weight: bold; -fx-text-fill: #ff6b6b; -fx-padding: 20;");
+            gridPane.getChildren().add(warning);
         }
     }
 
     private VBox createGridCard(FileItem item, int index) {
         VBox card = new VBox(10);
         card.setAlignment(Pos.TOP_CENTER);
-        card.setPrefWidth(170);
         
+        // FIX: Strictly lock dimensions to prevent massive CPU calculations during window resize
+        card.setPrefSize(170, 240);
+        card.setMinSize(170, 240);
+        card.setMaxSize(170, 240);
         card.getStyleClass().add("grid-card");
 
         ImageView image = new ImageView();
         image.setFitWidth(150);
-        image.setFitHeight(200);
+        image.setFitHeight(180);
         image.setPreserveRatio(true); 
 
         Label name = new Label(item.getName());
-        name.setWrapText(true);
-        name.setMaxWidth(160);
+        // FIX: Removed 'name.setWrapText(true)' which causes the JavaFX Layout engine to crash on resize.
+        name.setWrapText(false);
+        name.setTextOverrun(OverrunStyle.ELLIPSIS); // Cuts off long text safely with "..."
+        name.setPrefWidth(160);
         name.setAlignment(Pos.CENTER);
 
         PdfThumbnailUtil.loadThumbnailAsync(item.getPath(), image::setImage);
@@ -104,13 +126,19 @@ public class FileListView extends StackPane {
             Dragboard db = event.getDragboard();
             boolean success = false;
             if (db.hasFiles()) {
+                // FIX: Batch Drag-and-Drop addition
+                List<FileItem> droppedItems = new ArrayList<>();
                 for (File file : db.getFiles()) {
                     String name = file.getName().toLowerCase();
                     if (name.endsWith(".pdf") || name.endsWith(".jpg") || name.endsWith(".png")) {
-                        items.add(new FileItem(file.getAbsolutePath()));
+                        droppedItems.add(new FileItem(file.getAbsolutePath()));
                     }
                 }
-                success = true;
+                
+                if (!droppedItems.isEmpty()) {
+                    items.addAll(droppedItems); // Trigger refreshGrid only once
+                    success = true;
+                }
             }
             event.setDropCompleted(success);
             event.consume();
@@ -146,19 +174,12 @@ public class FileListView extends StackPane {
         });
     }
 
-    /**
-     * Switches the UI between LIST view and GRID view.
-     */
     public void setViewMode(ViewMode mode) {
-        this.currentMode = mode; // Assigned here
+        this.currentMode = mode;
         listView.setVisible(mode == ViewMode.LIST);
         gridScroll.setVisible(mode == ViewMode.GRID);
     }
 
-    /**
-     * NEW: Returns the current view mode.
-     * This fixes the "unused variable" warning because we are now reading it.
-     */
     public ViewMode getViewMode() {
         return currentMode;
     }

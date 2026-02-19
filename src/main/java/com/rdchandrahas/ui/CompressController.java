@@ -17,10 +17,11 @@ import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * CompressController manages the logic for reducing PDF file sizes.
@@ -29,6 +30,7 @@ import java.nio.file.StandardCopyOption;
  */
 public class CompressController extends BaseToolController {
 
+    private static final Logger LOGGER = Logger.getLogger(CompressController.class.getName());
     private static final String MODE_PERCENTAGE = "By Percentage";
 
     private ComboBox<String> modeComboBox;
@@ -46,7 +48,7 @@ public class CompressController extends BaseToolController {
 
         // --- UI Component Initialization ---
         modeComboBox = new ComboBox<>();
-    modeComboBox.getItems().addAll(MODE_PERCENTAGE, "By Target Size");
+        modeComboBox.getItems().addAll(MODE_PERCENTAGE, "By Target Size");
         modeComboBox.getSelectionModel().selectFirst();
 
         valueInput = new TextField();
@@ -108,7 +110,7 @@ public class CompressController extends BaseToolController {
             long targetSizeBytes;
 
             // --- Target Calculation ---
-            if (modeComboBox.getValue().equals("By Percentage")) {
+            if (modeComboBox.getValue().equals(MODE_PERCENTAGE)) {
                 if (inputValue <= 0 || inputValue >= 100) {
                     throw new IllegalArgumentException("Percentage must be between 1 and 99.");
                 }
@@ -119,6 +121,9 @@ public class CompressController extends BaseToolController {
                         ? (long) (inputValue * 1024 * 1024)
                         : (long) (inputValue * 1024);
             }
+
+            LOGGER.log(Level.INFO, "Starting compression. Original size: {0} bytes, Target size: {1} bytes", 
+                    new Object[]{originalSizeBytes, targetSizeBytes});
 
             // Optimization: If the file is already under the target, just copy it
             if (targetSizeBytes >= originalSizeBytes) {
@@ -136,40 +141,55 @@ public class CompressController extends BaseToolController {
     /**
      * Progressively applies more aggressive compression strategies until
      * the target size is reached or strategies are exhausted.
+     * Uses Temporary Disk files to prevent RAM exhaustion.
      */
     private void executeIterativeCompression(File sourceFile, File destination, long targetSizeBytes) throws Exception {
-        byte[] bestResult = null;
+        File bestResultFile = null;
 
-        // Strategy matrix: { JPEG Quality (0.0-1.0), Image Scale Factor (0.0-1.0) }
         float[][] strategies = {
                 { 0.8f, 1.0f }, // High quality, original dimensions
                 { 0.6f, 1.0f }, // Medium quality, original dimensions
                 { 0.4f, 0.8f }, // Low quality, 80% dimensions
                 { 0.2f, 0.5f }, // Very low quality, 50% dimensions
-                { 0.1f, 0.3f } // Extreme compression
+                { 0.1f, 0.3f }  // Extreme compression
         };
 
-        for (float[] strategy : strategies) {
-            float quality = strategy[0];
-            float scale = strategy[1];
+        for (int i = 0; i < strategies.length; i++) {
+            float quality = strategies[i][0];
+            float scale = strategies[i][1];
+            
+            LOGGER.log(Level.INFO, "Attempting compression strategy {0}: Quality={1}, Scale={2}", 
+                    new Object[]{i + 1, quality, scale});
 
-            try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                    PDDocument doc = loadDocumentSafe(sourceFile.getAbsolutePath())) {
+            File tempAttempt = File.createTempFile("compress_attempt_", ".pdf");
+            tempAttempt.deleteOnExit();
 
+            try (PDDocument doc = loadDocumentSafe(sourceFile.getAbsolutePath())) {
                 compressImagesInDocument(doc, quality, scale);
-                doc.save(baos);
+                doc.save(tempAttempt);
+            }
 
-                bestResult = baos.toByteArray();
+            long attemptSize = tempAttempt.length();
+            LOGGER.log(Level.INFO, "Strategy {0} resulted in size: {1} bytes", new Object[]{i + 1, attemptSize});
+            
+            // Track the smallest file in case we never hit the target
+            if (bestResultFile == null || attemptSize < bestResultFile.length()) {
+                if (bestResultFile != null) bestResultFile.delete(); // cleanup old best
+                bestResultFile = tempAttempt;
+            } else {
+                tempAttempt.delete(); // Attempt was worse, discard
+            }
 
-                // Exit early if we hit the user's target size
-                if (bestResult.length <= targetSizeBytes) {
-                    break;
-                }
+            if (attemptSize <= targetSizeBytes) {
+                LOGGER.info("Target size reached! Stopping iterative compression.");
+                break; // Target reached
             }
         }
 
-        if (bestResult != null) {
-            Files.write(destination.toPath(), bestResult);
+        if (bestResultFile != null) {
+            Files.copy(bestResultFile.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            bestResultFile.delete();
+            LOGGER.info("Compression complete. Final file saved.");
         } else {
             throw new Exception("Failed to process document.");
         }

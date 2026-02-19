@@ -2,6 +2,8 @@ package com.rdchandrahas.core;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * ExecutionManager handles the application's threading model.
@@ -9,6 +11,12 @@ import java.util.concurrent.Executors;
  * or foreground (synchronous) execution, and manages the lifecycle of the executor services.
  */
 public class ExecutionManager {
+    
+    private static final Logger LOGGER = Logger.getLogger(ExecutionManager.class.getName());
+    
+    // Safety limit to guarantee we always have at least 2 threads, but max out at CPU cores.
+    // This prevents the "Thread Bomb" when uploading 5,000 files.
+    private static final int MAX_THREADS = Math.max(2, Runtime.getRuntime().availableProcessors());
     
     private ExecutionManager() {
         throw new IllegalStateException("Utility class");
@@ -23,25 +31,23 @@ public class ExecutionManager {
     private static boolean multiThreadingEnabled = true;
 
     /** The internal executor service used to manage thread pools. */
-    private static ExecutorService executor = Executors.newFixedThreadPool(
-        Runtime.getRuntime().availableProcessors()
-    );
+    private static ExecutorService executor = Executors.newFixedThreadPool(MAX_THREADS);
 
     // --- Configuration Methods ---
 
     /**
      * Toggles between background threading and blocking execution.
-     * * @param enabled true for background threads (Async), false for blocking the UI thread (Sync).
+     * @param enabled true for background threads (Async), false for blocking the UI thread (Sync).
      */
     public static void setAsync(boolean enabled) {
         async = enabled;
-        System.out.println("Execution Mode: " + (async ? "Background Threads" : "Blocking/Sync"));
+        LOGGER.log(Level.INFO, "Execution Mode: {0}", (async ? "Background Threads" : "Blocking/Sync"));
     }
 
     /**
      * Toggles between multi-threaded execution and single-thread execution.
      * If the mode changes, the current executor is shut down and replaced with the appropriate pool type.
-     * * @param enabled true for multi-threading (Pool), false for single background thread (Serial).
+     * @param enabled true for multi-threading (Pool), false for single background thread (Serial).
      */
     public static void setMultiThreading(boolean enabled) {
         // Prevent redundant restarts if the state hasn't changed
@@ -52,7 +58,7 @@ public class ExecutionManager {
         
         if (multiThreadingEnabled) {
             // Create a pool optimized for the system's CPU core count
-            executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+            executor = Executors.newFixedThreadPool(MAX_THREADS);
         } else {
             // Create an executor that handles tasks one by one in order
             executor = Executors.newSingleThreadExecutor();
@@ -63,12 +69,12 @@ public class ExecutionManager {
             oldExecutor.shutdown();
         }
         
-        System.out.println("Multi-threading Mode: " + (multiThreadingEnabled ? "Enabled" : "Disabled"));
+        LOGGER.log(Level.INFO, "Multi-threading Mode: {0}", (multiThreadingEnabled ? "Enabled" : "Disabled"));
     }
 
     /**
      * Checks if multi-threading is currently active.
-     * * @return true if multi-threading is enabled.
+     * @return true if multi-threading is enabled.
      */
     public static boolean isMultiThreadingEnabled() {
         return multiThreadingEnabled;
@@ -78,7 +84,7 @@ public class ExecutionManager {
 
     /**
      * Submits a task for execution based on the current 'async' configuration.
-     * * @param task The Runnable task to be performed.
+     * @param task The Runnable task to be performed.
      */
     public static void submit(Runnable task) {
         if (async) {
@@ -89,8 +95,8 @@ public class ExecutionManager {
             try {
                 task.run();
             } catch (Exception e) {
-                // Log errors occurring during synchronous execution
-                e.printStackTrace();
+                // Log errors occurring during synchronous execution instead of printStackTrace
+                LOGGER.log(Level.SEVERE, "Task execution failed during synchronous mode", e);
             }
         }
     }

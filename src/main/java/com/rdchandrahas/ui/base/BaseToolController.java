@@ -2,6 +2,8 @@ package com.rdchandrahas.ui.base;
 
 import com.rdchandrahas.core.ExecutionManager;
 import com.rdchandrahas.core.NavigationService;
+import com.rdchandrahas.core.PdfOperation;
+import com.rdchandrahas.core.PdfService;
 import com.rdchandrahas.ui.SortableToolController;
 import com.rdchandrahas.shared.component.FileListView;
 import com.rdchandrahas.shared.model.FileItem;
@@ -14,13 +16,10 @@ import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 import javafx.stage.FileChooser;
-import org.apache.pdfbox.io.MemoryUsageSetting;
-import org.apache.pdfbox.multipdf.PDFMergerUtility;
 import org.apache.pdfbox.pdmodel.PDDocument;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -28,7 +27,7 @@ import java.util.List;
  * It provides common UI management, asynchronous task execution, and 
  * safe PDF handling methods to ensure consistency across the application.
  */
-public abstract class BaseToolController implements SortableToolController{
+public abstract class BaseToolController implements SortableToolController {
 
     @FXML protected Label toolTitleLabel;
     @FXML protected Button addFilesBtn;
@@ -41,22 +40,13 @@ public abstract class BaseToolController implements SortableToolController{
     @FXML protected Button actionBtn;
 
     protected NavigationService navigationService;
-
-    /**
-     * Creates a dynamic memory setting for PDF processing.
-     * This can be further linked to the memory limit set in your MainController.
-     */
-    protected MemoryUsageSetting getMemorySetting() {
-        // Uses the 500MB mixed strategy you mentioned, or falls back to disk if needed
-        return MemoryUsageSetting.setupMixed(500L * 1024L * 1024L);
-    }
+    private final PdfService pdfService = new PdfService(); // Instantiate core service
 
     @FXML
     public void initialize() {
         setupSortAndViews();
         
         // --- SMART BUTTON LISTENER ---
-        // Listens to the file list and updates the button color/state instantly
         fileListView.getItems().addListener((ListChangeListener<FileItem>) c -> {
             updateActionBtnState();
         });
@@ -73,31 +63,21 @@ public abstract class BaseToolController implements SortableToolController{
     protected abstract void onInitialize();
 
     // --- Dynamic UI State Management ---
-
-    /**
-     * Updates the Action Button styling based on current validation.
-     */
     protected void updateActionBtnState() {
         actionBtn.getStyleClass().removeAll("action-button", "success-button", "danger-button", "button");
 
         if (fileListView.getItems().isEmpty()) {
-            // EMPTY -> Neutral grey, Disabled
             actionBtn.setDisable(true);
             actionBtn.getStyleClass().add("button");
         } else if (isInputValid()) {
-            // ALL FILES OK -> Green (action-button style), Enabled
             actionBtn.setDisable(false);
             actionBtn.getStyleClass().add("action-button");
         } else {
-            // ERROR / INVALID FILES -> Red (danger-button style), Disabled
             actionBtn.setDisable(true);
             actionBtn.getStyleClass().add("danger-button");
         }
     }
 
-    /**
-     * Logic for file validation. Override in specific tool controllers.
-     */
     protected boolean isInputValid() {
         return !fileListView.getItems().isEmpty();
     }
@@ -108,22 +88,27 @@ public abstract class BaseToolController implements SortableToolController{
     protected void addToolbarItem(Node... nodes) { customToolbarArea.getChildren().addAll(nodes); }
 
     /**
-     * Opens a FileChooser and adds selected files to the list using BATCH processing
-     * to prevent UI lag when adding thousands of files at once.
+     * Utility method for controllers to launch a FileChooser and append items.
+     * Includes batch-addition to prevent UI freezing on massive selections.
      */
     protected void addFiles(String filterName, String... extensions) {
         FileChooser chooser = new FileChooser();
-        chooser.setTitle("Select " + filterName);
+        chooser.setTitle("Select Files");
         chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(filterName, extensions));
-        List<File> files = chooser.showOpenMultipleDialog(addFilesBtn.getScene().getWindow());
-        
+
+        List<File> files = chooser.showOpenMultipleDialog(actionBtn.getScene().getWindow());
         if (files != null && !files.isEmpty()) {
-            List<FileItem> newItems = new ArrayList<>();
-            for (File file : files) {
-                newItems.add(new FileItem(file.getAbsolutePath()));
-            }
-            // Pushing all at once ensures the validation listener only runs once
+            
+            // FIX: Convert files to FileItems in memory first
+            List<FileItem> newItems = files.stream()
+                    .map(f -> new FileItem(f.getAbsolutePath()))
+                    .collect(java.util.stream.Collectors.toList());
+
+            // FIX: Add all items at once. This ensures the ListChangeListener 
+            // in FileListView only triggers ONE refresh cycle instead of thousands.
             fileListView.getItems().addAll(newItems);
+            
+            updateActionBtnState();
         }
     }
 
@@ -143,9 +128,6 @@ public abstract class BaseToolController implements SortableToolController{
         updateActionBtnState(); 
     }
 
-    /**
-     * Standardized background processing workflow for PDF tasks.
-     */
     protected void processWithSaveDialog(String title, String defaultName, ToolTask task) {
         if (!isInputValid()) {
             showAlert(Alert.AlertType.WARNING, "Invalid Input", "Please check your file requirements.");
@@ -169,6 +151,7 @@ public abstract class BaseToolController implements SortableToolController{
                     showAlert(Alert.AlertType.INFORMATION, "Success", "Saved to: " + dest.getName());
                 });
             } catch (Exception e) {
+                logError("Execution failed: " + e.getMessage());
                 Platform.runLater(() -> {
                     setBusy(false, actionBtn);
                     showAlert(Alert.AlertType.ERROR, "Error", e.getMessage());
@@ -177,27 +160,41 @@ public abstract class BaseToolController implements SortableToolController{
         });
     }
 
-    // --- PDF Safe Methods (Hybrid Memory Optimized) ---
+    // --- DEPENDENCY INJECTION / TEMPLATE METHOD (The Gold Standard) ---
+    /**
+     * Centralized execution method. 
+     * Injects the global UI memory settings dynamically and handles closing streams automatically.
+     */
+    protected void processPdfSafely(File inputFile, File outputFile, PdfOperation operation) throws Exception {
+        try (PDDocument document = PDDocument.load(inputFile, PdfService.getGlobalMemorySetting())) {
+            operation.execute(document);
+            document.save(outputFile);
+        }
+    }
+
+    // --- PDF Safe Fallback Methods ---
+    // For edge-cases where a child controller MUST manage the document lifecycle manually
     protected PDDocument loadDocumentSafe(String path) throws IOException {
-        return PDDocument.load(new File(path), getMemorySetting());
+        return PDDocument.load(new File(path), PdfService.getGlobalMemorySetting());
     }
     
     protected PDDocument loadDocumentSafe(String path, String pass) throws IOException {
-        return PDDocument.load(new File(path), pass, getMemorySetting());
+        return PDDocument.load(new File(path), pass, PdfService.getGlobalMemorySetting());
     }
     
     protected PDDocument createDocumentSafe() {
-        return new PDDocument(getMemorySetting());
+        return new PDDocument(PdfService.getGlobalMemorySetting());
     }
     
-    protected void mergeDocumentsSafe(List<String> paths, File dest) throws IOException {
-        PDFMergerUtility m = new PDFMergerUtility();
-        m.setDestinationFileName(dest.getAbsolutePath());
-        for (String p : paths) m.addSource(new File(p));
-        m.mergeDocuments(getMemorySetting());
+    /**
+     * Delegates to the highly-optimized PdfService to prevent OS file limits
+     * and memory exhaustion on massive batches.
+     */
+    protected void mergeDocumentsSafe(List<String> paths, File dest) throws Exception {
+        pdfService.merge(paths, dest.getAbsolutePath());
     }
 
-    // --- Interface Implementations ---
+    // --- Interface Implementations & Helpers ---
     @Override public FileListView getFileListView() { return fileListView; }
     @Override public ComboBox<String> getSortCombo() { return sortCombo; }
     @Override public ToggleButton getListViewBtn() { return listViewBtn; }
