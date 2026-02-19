@@ -34,4 +34,6 @@ target/
 PDFGear_*
 .DS_Store
 Thumbs.db
-*.log
+*.logoutput/
+*.deb
+*.exe
