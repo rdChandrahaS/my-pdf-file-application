@@ -2,9 +2,15 @@ name: Build My PDF Tool Installers
 
 on:
   push:
+    tags:
+      - 'v*' # Triggers the release ONLY when you push a tag like v1.0.0
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+
+# We need write permissions to create a release
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -60,9 +66,18 @@ jobs:
             --vendor "RdChandrahas" \
             --description "Advanced PDF Manipulation Toolkit"
 
-      # UPLOAD INSTALLERS AS ARTIFACTS
+      # 1. STILL KEEP ARTIFACTS (for normal commits to main)
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os }}-installer
           path: dist/*
+
+      # 2. CREATE GITHUB RELEASE (Only triggers when pushing a tag like v1.0.0)
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
