@@ -51,7 +51,7 @@ jobs:
             --win-shortcut `
             --win-dir-chooser `
             --vendor "RdChandrahas" `
-            --app-version "1.0.0"
+            --app-version "0.1.0"
 
       # --- LINUX BUILD STAGE ---
       - name: Build Linux DEB
@@ -75,7 +75,7 @@ jobs:
             --linux-shortcut \
             --vendor "RdChandrahas" \
             --description "Advanced PDF Manipulation Toolkit" \
-            --app-version "1.0.0"
+            --app-version "0.1.0"
 
       # 1. UPLOAD ARTIFACTS (Accessible in Actions tab for every push)
       - name: Upload Build Artifacts
