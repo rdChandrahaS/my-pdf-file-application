@@ -12,3 +12,10 @@ com.rdchandrahas.tools.DeletePagesTool
 com.rdchandrahas.tools.ExtractImagesTool
 com.rdchandrahas.tools.RearrangePagesTool
 com.rdchandrahas.tools.PageNumberTool
+com.rdchandrahas.tools.FormFillTool
+com.rdchandrahas.tools.DigitalSignatureTool
+com.rdchandrahas.tools.MetadataEditorTool
+com.rdchandrahas.tools.PdfRedactionTool
+com.rdchandrahas.tools.BookmarkManagerTool
+com.rdchandrahas.tools.AttachmentsManagerTool
+

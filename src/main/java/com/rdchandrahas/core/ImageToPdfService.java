@@ -1,8 +1,10 @@
 package com.rdchandrahas.core;
 
+import java.awt.image.BufferedImage;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import java.io.File;
@@ -10,6 +12,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import javax.imageio.ImageIO;
 
 public class ImageToPdfService {
 
@@ -30,7 +34,8 @@ public class ImageToPdfService {
                 File imageFile = new File(imagePaths.get(i));
                 if (!imageFile.exists()) continue;
 
-                PDImageXObject pdImage = PDImageXObject.createFromFile(imageFile.getAbsolutePath(), currentDoc);
+                BufferedImage bImage = ImageIO.read(imageFile);
+                PDImageXObject pdImage = LosslessFactory.createFromImage(currentDoc, bImage);                
                 PDRectangle pageSize = new PDRectangle(pdImage.getWidth(), pdImage.getHeight());
                 PDPage page = new PDPage(pageSize);
                 currentDoc.addPage(page);
