@@ -17,13 +17,15 @@ import javafx.scene.layout.VBox;
 import org.kordamp.ikonli.javafx.FontIcon;
 
 import java.io.InputStream;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * DashboardController manages the main entry point of the application.
- * It dynamically populates the UI with tool cards based on the ToolRegistry,
- * handles responsive layout adjustments, and manages navigation to specific PDF tools.
  */
 public class DashboardController implements InjectableController {
+
+    private static final Logger LOGGER = Logger.getLogger(DashboardController.class.getName());
 
     @FXML private FlowPane toolFlowPane;
     private NavigationService navigationService;
@@ -33,15 +35,10 @@ public class DashboardController implements InjectableController {
         this.navigationService = navService;
     }
 
-    /**
-     * Initializes the dashboard by rendering cards and setting up a 
-     * responsiveness listener to switch between standard and compact styles.
-     */
     @FXML
     public void initialize() {
         renderToolCards();
         
-        // Responsive Layout: Adjust card size based on window width
         toolFlowPane.widthProperty().addListener((obs, oldVal, newVal) -> {
             String sizeClass = (newVal.doubleValue() < 600) ? "compact-tool" : "standard-tool";
             toolFlowPane.getChildren().forEach(node -> {
@@ -51,9 +48,6 @@ public class DashboardController implements InjectableController {
         });
     }
 
-    /**
-     * Iterates through all registered tools and adds their visual cards to the FlowPane.
-     */
     private void renderToolCards() {
         toolFlowPane.getChildren().clear();
         for (Tool tool : ToolRegistry.getTools()) {
@@ -62,11 +56,6 @@ public class DashboardController implements InjectableController {
         }
     }
 
-    /**
-     * Creates a visual card for a specific tool.
-     * Logic includes icon resolution (Image -> FontIcon -> Placeholder), 
-     * styling, tooltips, and click-to-navigate events.
-     */
     private VBox createToolCard(Tool tool) {
         VBox card = new VBox(15); 
         card.getStyleClass().add("tool-card"); 
@@ -76,41 +65,17 @@ public class DashboardController implements InjectableController {
 
         // 1. Primary: Try loading Image from Path
         if (tool.getIconPath() != null && !tool.getIconPath().trim().isEmpty()) {
-            try {
-                InputStream imageStream = getClass().getResourceAsStream(tool.getIconPath());
-                if (imageStream != null) {
-                    ImageView imageView = new ImageView(new Image(imageStream));
-                    
-                    // 1. MAKE IMAGE LARGER (Covers more button space)
-                    imageView.setFitWidth(100);
-                    imageView.setFitHeight(100);
-                    
-                    // 2. OVAL EDGES (Clips the square white corners into an oval)
-                    javafx.scene.shape.Rectangle clip = new javafx.scene.shape.Rectangle(100, 100);
-                    clip.setArcWidth(45); // Adjust for roundness
-                    clip.setArcHeight(45);
-                    imageView.setClip(clip);
-
-                    imageView.getStyleClass().add("tool-image-icon"); 
-                    iconNode = imageView;
-                }
-            } catch (Exception e) {
-                System.err.println("Failed to load icon image: " + tool.getIconPath());
-            }
+            iconNode = extractedIconNode(tool);
         }
 
         // 2. Secondary: Fallback to FontIcon (Ikonli)
         if (iconNode == null && tool.getIconCode() != null && !tool.getIconCode().trim().isEmpty()) {
-            FontIcon fontIcon = new FontIcon(tool.getIconCode());
-            fontIcon.getStyleClass().add("tool-icon");
-            iconNode = fontIcon;
+            iconNode = getFontIcon(tool);
         }
 
         // 3. Absolute Fallback: Placeholder label
         if (iconNode == null) {
-            Label placeholder = new Label("?");
-            placeholder.setStyle("-fx-font-size: 40px; -fx-text-fill: #0078d7;");
-            iconNode = placeholder;
+            iconNode = getPlaceholder();
         }
         
         Label title = new Label(tool.getName());
@@ -123,19 +88,18 @@ public class DashboardController implements InjectableController {
             try {
                 Class<?> controllerClass = tool.getControllerClass();
                 if (controllerClass != null) {
-                    // Instantiate the specific tool controller and navigate
                     BaseToolController controller = (BaseToolController) controllerClass.getDeclaredConstructor().newInstance();
                     navigationService.navigateToTool(controller);
                 } else {
-                    System.err.println("Controller class not defined for: " + tool.getName());
+                    // FIXED SONARQUBE SMELL: Replaced System.err
+                    LOGGER.log(Level.WARNING, "Controller class not defined for: {0}", tool.getName());
                 }
             } catch (Exception ex) {
-                System.err.println("Failed to open tool: " + tool.getName());
-                ex.printStackTrace();
+                // FIXED SONARQUBE SMELL: Replaced System.err and printStackTrace
+                LOGGER.log(Level.SEVERE, "Failed to open tool: " + tool.getName(), ex);
             }
         });
         
-        // Add Tooltip for accessibility and clarity
         String description = tool.getDescription();
         if (description != null && !description.isBlank()) {
             Tooltip tooltip = new Tooltip(description);
@@ -144,5 +108,46 @@ public class DashboardController implements InjectableController {
         }
         
         return card;
+    }
+
+
+    private Node getPlaceholder() {
+        Label placeholder = new Label("?");
+        placeholder.setStyle("-fx-font-size: 40px; -fx-text-fill: #0078d7;");
+        return placeholder;
+    }
+
+    private Node getFontIcon(Tool tool) {
+        FontIcon fontIcon = new FontIcon(tool.getIconCode());
+        fontIcon.getStyleClass().add("tool-icon");
+        return fontIcon;
+    }
+
+    private Node extractedIconNode(Tool tool) {
+        try {
+            InputStream imageStream = getClass().getResourceAsStream(tool.getIconPath());
+            if (imageStream != null) {
+                return getClip(imageStream);
+            }
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Failed to load icon image: {0}", tool.getIconPath());
+        }
+        return null;
+    }
+
+    private Node getClip(InputStream imageStream) {
+        ImageView imageView = new ImageView(new Image(imageStream));
+        
+        imageView.setFitWidth(100);
+        imageView.setFitHeight(100);
+        
+        javafx.scene.shape.Rectangle clip = new javafx.scene.shape.Rectangle(100, 100);
+        clip.setArcWidth(45); 
+        clip.setArcHeight(45);
+        imageView.setClip(clip);
+
+        imageView.getStyleClass().add("tool-image-icon"); 
+        
+        return imageView;
     }
 }

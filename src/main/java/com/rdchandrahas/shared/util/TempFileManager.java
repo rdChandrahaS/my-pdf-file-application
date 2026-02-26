@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.logging.Logger;
 
 /**
  * TempFileManager handles the creation and lifecycle of temporary files used during 
@@ -13,8 +14,14 @@ import java.util.Comparator;
  */
 public class TempFileManager {
 
+    private TempFileManager() {
+        throw new IllegalStateException("Utility class");
+    }
+
     /** The path to the session-specific temporary directory. */
     private static Path appTempDir;
+    
+    private static final Logger LOGGER = Logger.getLogger(TempFileManager.class.getName());
 
     /**
      * Retrieves or creates a dedicated temporary directory for the current application run.
@@ -60,7 +67,7 @@ public class TempFileManager {
                 .forEach(File::delete);
         } catch (IOException e) {
             // Silently log or print error; critical cleanup shouldn't crash the shutdown process
-            System.err.println("Could not clean up temp files: " + e.getMessage());
+            LOGGER.log(java.util.logging.Level.WARNING, "Could not clean up temp files", e);
         }
     }
 }

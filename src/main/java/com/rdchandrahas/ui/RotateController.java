@@ -194,6 +194,7 @@ public class RotateController extends BaseToolController {
                     pages.add(Integer.parseInt(part));
                 }
             } catch (NumberFormatException ignored) {
+                // Ignored intentionally: skip invalid user input characters
             }
         }
         return pages;

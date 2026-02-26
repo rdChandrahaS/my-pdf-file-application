@@ -48,7 +48,9 @@ public class BookmarkManagerController extends BaseToolController {
                         int page = Integer.parseInt(parts[0].trim());
                         String title = parts[1].trim();
                         entries.add(new BookmarkManagerService.BookmarkEntry(page, title));
-                    } catch (NumberFormatException ignored) {}
+                    } catch (NumberFormatException ignored) {
+                        // Ignored intentionally: skip invalid user input characters
+                    }
                 }
             }
             

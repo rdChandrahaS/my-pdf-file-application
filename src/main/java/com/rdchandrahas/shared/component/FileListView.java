@@ -109,7 +109,10 @@ public class FileListView extends StackPane {
     }
 
     private int compareAlphanumeric(String s1, String s2) {
-        if (s1 == null || s2 == null) return s1 == null ? (s2 == null ? 0 : -1) : 1;
+        
+        if (s1 == null && s2 == null) return 0;
+        if (s1 == null) return -1;
+        if (s2 == null) return 1;
 
         List<String> chunks1 = extractChunks(s1);
         List<String> chunks2 = extractChunks(s2);

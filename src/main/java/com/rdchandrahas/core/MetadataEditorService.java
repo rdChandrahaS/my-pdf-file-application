@@ -5,7 +5,6 @@ import org.apache.pdfbox.pdmodel.PDDocumentInformation;
 
 import java.io.File;
 import java.io.IOException;
-import java.security.GeneralSecurityException;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -14,7 +13,7 @@ public class MetadataEditorService {
 
     private static final Logger LOGGER = Logger.getLogger(MetadataEditorService.class.getName());
 
-    public void updateMetadata(String inputPath, String outputPath, Map<String, String> newMetadata) throws IOException,GeneralSecurityException {
+    public void updateMetadata(String inputPath, String outputPath, Map<String, String> newMetadata) throws IOException {
         LOGGER.log(Level.INFO, "Updating metadata for {0}", inputPath);
 
         try (PDDocument document = PDDocument.load(new File(inputPath), PdfService.getGlobalMemorySetting())) {

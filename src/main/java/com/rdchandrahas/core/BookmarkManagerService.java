@@ -8,7 +8,6 @@ import org.apache.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlin
 
 import java.io.File;
 import java.io.IOException;
-import java.security.GeneralSecurityException;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -27,7 +26,7 @@ public class BookmarkManagerService {
         }
     }
 
-    public void addBookmarks(String inputPath, String outputPath, List<BookmarkEntry> bookmarks) throws IOException,GeneralSecurityException {
+    public void addBookmarks(String inputPath, String outputPath, List<BookmarkEntry> bookmarks) throws IOException {
         LOGGER.log(Level.INFO, "Adding bookmarks to {0}", inputPath);
 
         try (PDDocument document = PDDocument.load(new File(inputPath), PdfService.getGlobalMemorySetting())) {

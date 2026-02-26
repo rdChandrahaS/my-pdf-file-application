@@ -3,8 +3,6 @@ package com.rdchandrahas.ui;
 import com.rdchandrahas.shared.model.FileItem;
 import com.rdchandrahas.ui.base.BaseToolController;
 import org.apache.pdfbox.pdmodel.PDDocument;
-
-// REMOVED: unused import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -52,7 +50,7 @@ public class SplitController extends BaseToolController {
                 
             } catch (Exception e) {
                 LOGGER.log(Level.SEVERE, "An error occurred during the split operation.", e);
-                throw e; // Rethrow to let BaseToolController show the error popup to the user
+                throw new RuntimeException("Failed to split PDF: " + e.getMessage(), e);
             }
         });
     }

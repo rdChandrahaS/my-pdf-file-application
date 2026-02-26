@@ -11,7 +11,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
@@ -21,7 +20,7 @@ public class PdfRedactionService {
 
     private static final Logger LOGGER = Logger.getLogger(PdfRedactionService.class.getName());
 
-    public void redactText(String inputPath, String outputPath, String textToRedact) throws IOException, GeneralSecurityException {
+    public void redactText(String inputPath, String outputPath, String textToRedact) throws IOException {
         LOGGER.log(Level.INFO, "Starting visual text redaction for {0}", inputPath);
 
         try (PDDocument document = PDDocument.load(new File(inputPath), PdfService.getGlobalMemorySetting())) {

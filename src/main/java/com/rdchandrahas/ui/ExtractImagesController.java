@@ -16,7 +16,6 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.security.GeneralSecurityException;
 
 public class ExtractImagesController extends BaseToolController {
 
@@ -78,7 +77,7 @@ public class ExtractImagesController extends BaseToolController {
     /**
      * Helper method to reduce complexity of handleAction.
      */
-    private int extractImagesFromPdf(File sourceFile, File destDir) throws IOException,GeneralSecurityException {
+    private int extractImagesFromPdf(File sourceFile, File destDir) throws IOException {
         int count = 0;
         String baseName = sourceFile.getName().replaceFirst("[.][^.]+$", "");
 

@@ -46,7 +46,8 @@ public class WatermarkController extends BaseToolController {
     private TextField watermarkInput;
     private ColorPicker colorPicker;
     private ComboBox<String> fontCombo;
-    private CheckBox boldCheck, italicCheck;
+    private CheckBox boldCheck;
+    private CheckBox italicCheck;
     private ComboBox<String> sizeCombo;
     private Slider rotateSlider, opacitySlider;
     private Button previewBtn;

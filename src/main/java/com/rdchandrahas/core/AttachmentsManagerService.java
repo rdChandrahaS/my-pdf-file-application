@@ -10,7 +10,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.security.GeneralSecurityException;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
@@ -21,7 +20,7 @@ public class AttachmentsManagerService {
 
     private static final Logger LOGGER = Logger.getLogger(AttachmentsManagerService.class.getName());
 
-    public void addAttachment(String inputPath, String outputPath, String attachmentFilePath) throws IOException,GeneralSecurityException {
+    public void addAttachment(String inputPath, String outputPath, String attachmentFilePath) throws IOException{
         LOGGER.log(Level.INFO, "Adding attachment to {0}", inputPath);
 
         try (PDDocument document = PDDocument.load(new File(inputPath), PdfService.getGlobalMemorySetting())) {
